@@ -6,9 +6,9 @@ const steps = [
   {
     n: 3,
     title: "Enregistrement local résistant aux coupures, envoi progressif",
-    state: "en cours",
+    state: "livré",
   },
-  { n: 4, title: "Démarrage simultané et alignement sans clap", state: "à venir" },
+  { n: 4, title: "Démarrage simultané et alignement sans clap", state: "en cours" },
   { n: 5, title: "Collectif, émissions, épisodes, sessions, invitations", state: "à venir" },
   { n: 6, title: "Studio : traitements, presets, transcription, montage", state: "à venir" },
 ];
@@ -27,6 +27,9 @@ export default function Home() {
         </Link>{" "}
         <Link className="button secondary" href="/enregistrement">
           Enregistrement d&apos;essai
+        </Link>{" "}
+        <Link className="button secondary" href="/seance/nouvelle">
+          Créer une séance d&apos;essai
         </Link>{" "}
         <Link href="/diagnostic">Diagnostic navigateur</Link>
       </p>

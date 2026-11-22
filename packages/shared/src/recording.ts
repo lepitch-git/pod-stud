@@ -4,6 +4,8 @@
  * puis envoyé au serveur au fil de l'eau. Ce module regroupe la logique pure, testable sans navigateur.
  */
 
+import type { SyncPoint } from "./sync";
+
 /** Durée d'un morceau : assez court pour ne perdre que quelques secondes en cas de plantage. */
 export const CHUNK_SECONDS = 5;
 export const BYTES_PER_SAMPLE = 3;
@@ -141,4 +143,12 @@ export interface TakeManifest {
   markers: Marker[];
   gaps: Gap[];
   browser: string;
+  /** Séance à plusieurs à laquelle appartient la prise (étape 4). */
+  sessionId?: string;
+  /** Heure serveur (ms) du départ commun annoncé par l'hôte. */
+  startServerMs?: number;
+  /** Repères de synchro relevés pendant l'enregistrement (ENR-07). */
+  syncPoints?: SyncPoint[];
+  /** Aller-retour de la meilleure mesure d'horloge (ms) : précision du départ. */
+  clockRttMs?: number;
 }

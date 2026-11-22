@@ -1,3 +1,5 @@
+import type { SyncPoint } from "@pod-stud/shared";
+import type { ServerClock } from "../sync/clock";
 import type { WriterIn, WriterOut } from "./writer.worker";
 
 type AudioCtor = typeof AudioContext;
@@ -20,6 +22,11 @@ export class LocalRecorder {
   private worker!: Worker;
   private done: ((v: { chunkCount: number; frames: number }) => void) | null = null;
   sampleRate = 48000;
+  /** Échantillon de l'horloge audio où la captation a réellement commencé. */
+  startFrame: number | null = null;
+  /** Retard du micro annoncé par le navigateur (ms), retiré des repères de synchro. */
+  latencyMs = 0;
+  private started: (() => void) | null = null;
 
   constructor(private readonly ev: RecorderEvents) {}
 
@@ -38,6 +45,9 @@ export class LocalRecorder {
       this.source = this.ctx.createMediaStreamSource(stream);
     }
     this.sampleRate = this.ctx.sampleRate;
+    const lat = (stream.getAudioTracks()[0]?.getSettings() as { latency?: number } | undefined)
+      ?.latency;
+    this.latencyMs = typeof lat === "number" && lat > 0 && lat < 1 ? lat * 1000 : 0;
     await this.ctx.audioWorklet.addModule("/worklets/capture.js");
     this.node = new AudioWorkletNode(this.ctx, "podstud-capture", {
       numberOfInputs: 1,
@@ -46,6 +56,12 @@ export class LocalRecorder {
       channelCountMode: "explicit",
     });
     // Sortie à volume nul : certains navigateurs ne font tourner que les nœuds reliés aux haut-parleurs.
+    this.node.port.onmessage = (e: MessageEvent<{ type: string; frame?: number }>) => {
+      if (e.data.type === "started" && typeof e.data.frame === "number") {
+        this.startFrame = e.data.frame;
+        this.started?.();
+      }
+    };
     this.sink = this.ctx.createGain();
     this.sink.gain.value = 0;
     this.source.connect(this.node);
@@ -73,17 +89,55 @@ export class LocalRecorder {
     return this.sampleRate;
   }
 
-  async start() {
-    if (this.ctx.state === "suspended")
-      await Promise.race([this.ctx.resume().catch(() => undefined), sleep(1000)]);
-    this.node.port.postMessage({ type: "start" });
+  /** Correspondance entre l'horloge audio (s) et l'horloge locale de la page (ms). */
+  private timestamp(): { ctxTime: number; perf: number } {
+    const ts = this.ctx.getOutputTimestamp?.();
+    if (ts && ts.performanceTime && ts.contextTime)
+      return { ctxTime: ts.contextTime, perf: ts.performanceTime };
+    return { ctxTime: this.ctx.currentTime, perf: performance.now() };
   }
 
-  /** Arrête la captation et attend que le dernier morceau soit écrit. */
-  async stop(): Promise<{ chunkCount: number; frames: number }> {
+  /** Échantillon de l'horloge audio correspondant à une heure serveur. */
+  private frameAt(serverMs: number, clock: ServerClock): number {
+    const { ctxTime, perf } = this.timestamp();
+    const perfTarget = clock.toLocal(serverMs) - performance.timeOrigin;
+    return Math.round((ctxTime + (perfTarget - perf) / 1000) * this.sampleRate);
+  }
+
+  /**
+   * Démarre la captation, tout de suite ou à une heure serveur précise (départ simultané) :
+   * le processeur audio commence alors exactement à l'échantillon correspondant.
+   */
+  async start(atServerMs?: number, clock?: ServerClock) {
+    if (this.ctx.state === "suspended")
+      await Promise.race([this.ctx.resume().catch(() => undefined), sleep(1000)]);
+    const started = new Promise<void>((r) => (this.started = r));
+    const atFrame = atServerMs !== undefined && clock ? this.frameAt(atServerMs, clock) : undefined;
+    this.node.port.postMessage({ type: "start", atFrame });
+    const wait = atServerMs !== undefined && clock ? Math.max(0, atServerMs - clock.now()) : 0;
+    await Promise.race([started, sleep(wait + 3000)]);
+  }
+
+  /** Repère de synchro : tel échantillon de la piste correspond à telle heure serveur. */
+  syncPoint(clock: ServerClock): SyncPoint | null {
+    if (this.startFrame === null || !clock.estimate) return null;
+    const { ctxTime, perf } = this.timestamp();
+    return {
+      frame: Math.round(ctxTime * this.sampleRate) - this.startFrame,
+      serverMs: clock.toServer(perf + performance.timeOrigin) - this.latencyMs,
+    };
+  }
+
+  /** Arrête la captation (tout de suite ou à une heure serveur) et attend le dernier morceau. */
+  async stop(
+    atServerMs?: number,
+    clock?: ServerClock,
+  ): Promise<{ chunkCount: number; frames: number }> {
     const result = new Promise<{ chunkCount: number; frames: number }>((r) => (this.done = r));
-    this.node.port.postMessage({ type: "stop" });
-    const r = await Promise.race([result, sleep(10_000).then(() => null)]);
+    const atFrame = atServerMs !== undefined && clock ? this.frameAt(atServerMs, clock) : undefined;
+    this.node.port.postMessage({ type: "stop", atFrame });
+    const wait = atServerMs !== undefined && clock ? Math.max(0, atServerMs - clock.now()) : 0;
+    const r = await Promise.race([result, sleep(wait + 10_000).then(() => null)]);
     this.dispose();
     if (!r) throw new Error("Le dernier morceau n'a pas pu être écrit.");
     return r;

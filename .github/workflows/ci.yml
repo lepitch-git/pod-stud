@@ -62,3 +62,39 @@ jobs:
         with:
           name: rapport-${{ matrix.project }}
           path: apps/web/playwright-report
+
+  livekit:
+    name: Séance avec conversation en direct (LiveKit, chromium)
+    runs-on: ubuntu-latest
+    env:
+      LIVEKIT_URL: ws://localhost:7880
+      LIVEKIT_API_KEY: devkey
+      LIVEKIT_API_SECRET: secret
+      PODSTUD_EXPECT_LIVEKIT: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      # Serveur LiveKit local en mode développement (clés de test publiques devkey / secret).
+      - name: Démarrer LiveKit
+        run: |
+          docker run -d --name livekit --network host livekit/livekit-server:latest --dev --bind 0.0.0.0
+          for i in $(seq 1 30); do curl -fs http://localhost:7880 >/dev/null && break; sleep 1; done
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Installer le navigateur
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+      - name: Lancer les tests de séance
+        working-directory: apps/web
+        run: npx playwright test e2e/seance.spec.ts --project=chromium --trace off
+      - if: failure()
+        run: docker logs livekit | tail -100
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-livekit
+          path: apps/web/playwright-report

@@ -387,3 +387,7 @@ h1 {
 .takes li {
   margin: 6px 0;
 }
+.rec-countdown {
+  font-weight: 700;
+  color: var(--accent);
+}

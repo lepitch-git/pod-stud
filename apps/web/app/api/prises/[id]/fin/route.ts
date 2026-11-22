@@ -1,4 +1,4 @@
-import { missingChunks, type TakeManifest } from "@pod-stud/shared";
+import { isValidTakeId, missingChunks, type TakeManifest } from "@pod-stud/shared";
 import { getStore } from "@/lib/server/store";
 import { badId, manifestKey, receivedChunks, type StoredManifest } from "@/lib/server/takes";
 
@@ -30,9 +30,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     markers: Array.isArray(m.markers) ? m.markers.slice(0, 1000) : [],
     gaps: Array.isArray(m.gaps) ? m.gaps.slice(0, 1000) : [],
     browser: String(m.browser ?? "").slice(0, 100),
+    sessionId: isValidTakeId(String(m.sessionId ?? "")) ? m.sessionId : undefined,
+    startServerMs: Number.isFinite(m.startServerMs) ? m.startServerMs : undefined,
+    syncPoints: Array.isArray(m.syncPoints)
+      ? m.syncPoints
+          .filter((p) => Number.isFinite(p?.frame) && Number.isFinite(p?.serverMs))
+          .slice(0, 20_000)
+          .map((p) => ({ frame: p.frame, serverMs: p.serverMs }))
+      : undefined,
+    clockRttMs: Number.isFinite(m.clockRttMs) ? m.clockRttMs : undefined,
     receivedAt: new Date().toISOString(),
     lost: missing,
   };
+  // Index de la séance : permet de retrouver toutes ses pistes pour l'export aligné.
+  if (stored.sessionId)
+    await getStore().put(
+      `seances/${stored.sessionId}/prises/${id}.json`,
+      new TextEncoder().encode(JSON.stringify({ id, participant: stored.participant })),
+      "application/json",
+    );
   await getStore().put(
     manifestKey(id),
     new TextEncoder().encode(JSON.stringify(stored)),
