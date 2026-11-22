@@ -41,7 +41,7 @@ ne touche jamais les enregistrements réels.
 Stack TypeScript retenue dans les spécifications :
 
 ```
-apps/web        Interface (Next.js + React) : accueil, diagnostic navigateur ; plus tard salle, studio
+apps/web        Interface (Next.js + React) : test d'équipement, enregistrement local, envoi des morceaux
 apps/api        API (Fastify) : état de santé ; plus tard envoi des morceaux, comptes, sessions
 packages/shared Code partagé et testé sans navigateur (détection du navigateur, évaluation des capacités)
 ```
@@ -75,3 +75,21 @@ Vercel héberge l'interface web (`apps/web`, réglage « Root Directory ») :
 - la branche `main` est la production (« Production Branch » dans Settings › Git).
 
 Les réglages secrets sont saisis séparément pour « Preview » (fonctions et préprod) et « Production ».
+
+## Stockage des enregistrements
+
+Les morceaux d'enregistrement (5 secondes de PCM 24 bits chacun) arrivent sur `PUT /api/prises/<id>/morceaux/<n>`
+avec leur empreinte SHA-256, vérifiée avant stockage. La prise est clôturée par `POST /api/prises/<id>/fin`,
+et la piste WAV assemblée est servie par `GET /api/prises/<id>/piste.wav`.
+
+Où sont rangés les fichiers :
+
+| Situation                               | Stockage                                                 |
+| --------------------------------------- | -------------------------------------------------------- |
+| Variables `S3_*` définies               | Stockage objet compatible S3 (cible : hébergé en France) |
+| Développement local, tests automatiques | Dossier `apps/web/.data` (ou `PODSTUD_DATA_DIR`)         |
+| Vercel sans variables `S3_*`            | `/tmp` : temporaire, la page affiche un avertissement    |
+
+Variables à saisir dans Vercel (Settings › Environment Variables), séparément pour Preview et Production,
+jamais dans le dépôt : `S3_ENDPOINT` (par exemple `https://s3.fr-par.scw.cloud`), `S3_REGION` (`fr-par`),
+`S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`.
