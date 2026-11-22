@@ -91,7 +91,10 @@ export class LiveKitBus implements RoomBus {
   private audioEls: HTMLMediaElement[] = [];
   private live = false;
 
-  private constructor(private readonly onMessage: (e: Envelope) => void) {}
+  private constructor(
+    private readonly me: string,
+    private readonly onMessage: (e: Envelope) => void,
+  ) {}
 
   /** Connexion au salon ; rend null si la conversation en direct n'est pas configurée. */
   static async connect(
@@ -108,13 +111,16 @@ export class LiveKitBus implements RoomBus {
     if (!r?.ok) return null;
     const { url, token } = (await r.json()) as { url: string; token: string };
     const lk = await import("livekit-client");
-    const bus = new LiveKitBus(onMessage);
+    const bus = new LiveKitBus(me, onMessage);
     const room = new lk.Room({ adaptiveStream: true, dynacast: true });
     bus.room = room;
     room.on(lk.RoomEvent.DataReceived, (payload, participant) => {
       try {
-        const msg = JSON.parse(new TextDecoder().decode(payload)) as RoomMessage;
-        onMessage({ from: participant?.identity ?? "?", msg });
+        // L'expéditeur voyage dans le message : selon les versions de LiveKit, l'événement ne
+        // précise pas toujours qui l'a envoyé.
+        const e = JSON.parse(new TextDecoder().decode(payload)) as Partial<Envelope>;
+        const from = e.from ?? participant?.identity;
+        if (from && e.msg) onMessage({ from, msg: e.msg });
       } catch {
         /* message illisible ignoré */
       }
@@ -153,10 +159,11 @@ export class LiveKitBus implements RoomBus {
 
   async send(msg: RoomMessage) {
     // On se livre aussi le message à soi-même, comme le relais.
-    this.onMessage({ from: this.room?.localParticipant.identity ?? "?", msg });
+    const envelope: Envelope = { from: this.me, msg };
+    this.onMessage(envelope);
     await this.room?.localParticipant
-      .publishData(new TextEncoder().encode(JSON.stringify(msg)), { reliable: true })
-      .catch(() => undefined);
+      .publishData(new TextEncoder().encode(JSON.stringify(envelope)), { reliable: true })
+      .catch((e: unknown) => console.warn("Message de séance non envoyé", e));
   }
 
   close() {
