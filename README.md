@@ -93,3 +93,14 @@ Où sont rangés les fichiers :
 Variables à saisir dans Vercel (Settings › Environment Variables), séparément pour Preview et Production,
 jamais dans le dépôt : `S3_ENDPOINT` (par exemple `https://s3.fr-par.scw.cloud`), `S3_REGION` (`fr-par`),
 `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`.
+
+## Séances à plusieurs et conversation en direct
+
+Une séance (`/seance/<id>`, l'hôte ouvre `?hote=1`) réunit plusieurs participants : salle d'attente,
+départ et arrêt communs à l'heure du serveur, pistes alignées sans clap
+(`GET /api/seances/<id>/alignee/<prise>.wav`).
+
+- Avec LiveKit : conversation en direct et messages de la séance passent par LiveKit. Variables à
+  saisir dans Vercel : `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`.
+- Sans LiveKit : relais de messages en mémoire du serveur, fiable seulement en local et pendant
+  les tests automatiques ; la page l'indique.

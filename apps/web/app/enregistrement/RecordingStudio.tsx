@@ -11,6 +11,7 @@ import {
   type EquipmentCheck,
   type Gap,
   type Marker,
+  type SyncPoint,
 } from "@pod-stud/shared";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -36,6 +37,7 @@ import {
   type LocalTake,
 } from "@/lib/recorder/takes";
 import { Uploader } from "@/lib/recorder/uploader";
+import { ServerClock } from "@/lib/sync/clock";
 
 type Phase = "idle" | "starting" | "recording" | "stopping" | "uploading" | "sent";
 type LockState = "pending" | "ok" | "busy";
@@ -44,7 +46,28 @@ interface WakeLockSentinelLike {
   release(): Promise<void>;
 }
 
-export function RecordingStudio() {
+/** Commande d'enregistrement envoyée par l'hôte à tous les participants d'une séance (ENR-07). */
+export interface RecordCommand {
+  seq: number;
+  type: "start" | "stop";
+  /** Heure serveur (ms) à laquelle tout le monde démarre ou s'arrête. */
+  atServerMs: number;
+  takeName?: string;
+}
+
+/** Pilotage de l'enregistrement par une séance à plusieurs. */
+export interface SessionControl {
+  sessionId: string;
+  role: "hote" | "invite";
+  participant: string;
+  command: RecordCommand | null;
+  /** Hôte : demande de départ ou d'arrêt, transmise à tous (y compris à soi-même). */
+  onRequest?: (type: "start" | "stop", takeName: string) => void;
+  /** État local, remonté à l'hôte (tableau de bord). */
+  onStatus?: (s: { phase: string; pending: number; level: number }) => void;
+}
+
+export function RecordingStudio({ session }: { session?: SessionControl } = {}) {
   const [lock, setLock] = useState<LockState>("pending");
   const [name, setName] = useState("");
   const [takeName, setTakeName] = useState("Prise 1");
@@ -74,16 +97,26 @@ export function RecordingStudio() {
   const uploader = useRef<Uploader | null>(null);
   const wake = useRef<WakeLockSentinelLike | null>(null);
   const clock = useRef({ start: 0, frames: 0, rate: 48000, lag: 0, hiddenAt: 0 });
+  const serverClock = useRef<ServerClock | null>(null);
+  const syncPoints = useRef<SyncPoint[]>([]);
+  const [countdown, setCountdown] = useState<number | null>(null);
   const phaseRef = useRef<Phase>("idle");
   phaseRef.current = phase;
   const takeIdRef = useRef<string | null>(null);
   takeIdRef.current = takeId;
 
+  // Verrou par séance et par rôle : deux onglets ne peuvent pas enregistrer la même place,
+  // mais on peut tester seul une séance avec un onglet hôte et un onglet invité.
+  const lockKey = session ? `seance:${session.sessionId}:${session.role}` : "solo";
+
   const refreshTakes = useCallback(() => setTakes(loadTakes().slice().reverse()), []);
 
   // --- Un seul onglet à la fois (CR-12), puis reprise des prises interrompues (CR-05 à CR-07) ---
   useEffect(() => {
-    setName(loadName());
+    setName(session?.participant || loadName());
+    const sc = new ServerClock();
+    serverClock.current = sc;
+    void sc.sample(6).then(() => sc.keepFresh());
     const up = new Uploader();
     uploader.current = up;
     const unsub = up.subscribe(() => {
@@ -98,12 +131,12 @@ export function RecordingStudio() {
         return;
       }
       setLock("ok");
-      await recoverTakes(up, setRecovered);
+      await recoverTakes(up, setRecovered, lockKey);
       refreshTakes();
     };
     const locks = (navigator as Navigator & { locks?: LockManager }).locks;
     if (locks) {
-      void locks.request("podstud-enregistrement", { ifAvailable: true }, async (l) => {
+      void locks.request(`podstud-enregistrement:${lockKey}`, { ifAvailable: true }, async (l) => {
         await onLock(!!l);
         if (l) await held;
       });
@@ -113,10 +146,12 @@ export function RecordingStudio() {
       .then((j: { kind: string }) => setStorageKind(j.kind))
       .catch(() => setStorageKind(null));
     return () => {
+      sc.stop();
       unsub();
       up.dispose();
       (release as (() => void) | null)?.();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshTakes]);
 
   // --- Micro ---
@@ -186,6 +221,35 @@ export function RecordingStudio() {
     return () => clearInterval(t);
   }, []);
 
+  // Repères de synchro toutes les 2 secondes (heure serveur de tel échantillon), gardés avec la prise.
+  useEffect(() => {
+    const t = setInterval(() => {
+      const rec = recorder.current;
+      const sc = serverClock.current;
+      const id = takeIdRef.current;
+      if (phaseRef.current !== "recording" || !rec || !sc || !id) return;
+      const p = rec.syncPoint(sc);
+      if (!p) return;
+      syncPoints.current.push(p);
+      const pts = syncPoints.current;
+      updateTake(id, (x) => (x.syncPoints = pts));
+    }, 2000);
+    return () => clearInterval(t);
+  }, []);
+
+  // État remonté à la séance (tableau de bord de l'hôte).
+  useEffect(() => {
+    if (!session?.onStatus) return;
+    const t = setInterval(() => {
+      session.onStatus?.({
+        phase: phaseRef.current,
+        pending: uploader.current?.status.pending ?? 0,
+        level: meter.current?.read().rmsDb ?? -100,
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [session]);
+
   // Avertir avant de fermer la page pendant l'enregistrement ou l'envoi
   useEffect(() => {
     const h = (e: BeforeUnloadEvent) => {
@@ -245,7 +309,7 @@ export function RecordingStudio() {
   }, [addMarker]);
 
   // --- Démarrer / arrêter ---
-  async function start() {
+  async function start(at?: { atServerMs: number; takeName?: string }) {
     if (!stream.current) return;
     setError(null);
     setPhase("starting");
@@ -254,7 +318,7 @@ export function RecordingStudio() {
     const browser = detectBrowser(navigator.userAgent);
     const take: LocalTake = {
       id,
-      name: takeName.trim() || "Prise",
+      name: (at?.takeName ?? takeName).trim() || "Prise",
       participant: name.trim(),
       sampleRate: 48000,
       startedAt: new Date().toISOString(),
@@ -265,6 +329,11 @@ export function RecordingStudio() {
       markers: [],
       gaps: [],
       browser: `${browser.label} ${browser.version}`.trim(),
+      sessionId: session?.sessionId,
+      lockKey,
+      startServerMs: at?.atServerMs,
+      clockRttMs: serverClock.current?.estimate?.rttMs,
+      syncPoints: [],
     };
     try {
       // Stockage persistant demandé sans attendre : Firefox affiche une question à l'utilisateur
@@ -291,7 +360,13 @@ export function RecordingStudio() {
       setGaps([]);
       setWritten(0);
       setSeconds(0);
-      await rec.start();
+      syncPoints.current = [];
+      if (at) {
+        const sc = serverClock.current;
+        await rec.start(at.atServerMs, sc ?? undefined);
+        // Le chrono part de l'heure commune, pas du moment où la commande est arrivée.
+        clock.current.start = performance.now() - Math.max(0, (sc?.now() ?? 0) - at.atServerMs);
+      } else await rec.start();
       setPhase("recording");
       void requestWake();
       refreshTakes();
@@ -305,17 +380,21 @@ export function RecordingStudio() {
     }
   }
 
-  async function stop() {
+  async function stop(atServerMs?: number) {
     const rec = recorder.current;
     const id = takeIdRef.current;
     if (!rec || !id) return;
     setPhase("stopping");
     try {
-      const r = await rec.stop();
+      const r =
+        atServerMs !== undefined
+          ? await rec.stop(atServerMs, serverClock.current ?? undefined)
+          : await rec.stop();
       updateTake(id, (t) => {
         t.chunkCount = r.chunkCount;
         t.endedAt = new Date().toISOString();
         t.state = "uploading";
+        t.syncPoints = syncPoints.current;
       });
       setSeconds(r.frames / clock.current.rate);
       setWritten(r.chunkCount);
@@ -332,6 +411,28 @@ export function RecordingStudio() {
     const n = Number(/(\d+)$/.exec(takeName)?.[1] ?? 0);
     setTakeName(n ? takeName.replace(/\d+$/, String(n + 1)) : `${takeName} 2`);
   }
+
+  // Commandes de la séance : départ et arrêt communs, à l'heure serveur annoncée par l'hôte.
+  const lastSeq = useRef(0);
+  useEffect(() => {
+    const c = session?.command;
+    if (!c || c.seq <= lastSeq.current) return;
+    lastSeq.current = c.seq;
+    if (c.type === "start" && (phaseRef.current === "idle" || phaseRef.current === "sent")) {
+      if (c.takeName) setTakeName(c.takeName);
+      const tick = () => {
+        const left = Math.ceil((c.atServerMs - (serverClock.current?.now() ?? 0)) / 1000);
+        setCountdown(left > 0 ? left : null);
+        if (left > 0) setTimeout(tick, 200);
+      };
+      tick();
+      void start({ atServerMs: c.atServerMs, takeName: c.takeName });
+    } else if (c.type === "stop" && phaseRef.current === "recording") {
+      void stop(c.atServerMs);
+    }
+    // start/stop sont recréées à chaque rendu ; la commande seule déclenche l'effet.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.command]);
 
   const current = takeId ? (takes.find((t) => t.id === takeId) ?? getTake(takeId)) : undefined;
   useEffect(() => {
@@ -413,15 +514,17 @@ export function RecordingStudio() {
         <div className="rec-controls">
           {phase === "recording" || phase === "stopping" ? (
             <>
-              <button
-                type="button"
-                className="button danger"
-                onClick={() => void stop()}
-                disabled={phase === "stopping"}
-                data-testid="rec-stop"
-              >
-                ■ Arrêter
-              </button>
+              {session?.role !== "invite" && (
+                <button
+                  type="button"
+                  className="button danger"
+                  onClick={() => (session ? session.onRequest?.("stop", takeName) : void stop())}
+                  disabled={phase === "stopping"}
+                  data-testid="rec-stop"
+                >
+                  ■ Arrêter{session ? " pour tout le monde" : ""}
+                </button>
+              )}
               <button
                 type="button"
                 className="button secondary"
@@ -431,18 +534,27 @@ export function RecordingStudio() {
                 Marqueur (touche M)
               </button>
             </>
+          ) : session?.role === "invite" ? (
+            <span className="hint" data-testid="rec-wait-host">
+              L&apos;hôte lancera l&apos;enregistrement pour tout le monde.
+            </span>
           ) : (
             <button
               type="button"
               className="button"
-              onClick={() => void start()}
+              onClick={() => (session ? session.onRequest?.("start", takeName) : void start())}
               disabled={
                 !stream.current || phase === "starting" || phase === "uploading" || lock !== "ok"
               }
               data-testid="rec-start"
             >
-              ● Enregistrer
+              ● Enregistrer{session ? " (tout le monde)" : ""}
             </button>
+          )}
+          {countdown !== null && countdown > 0 && (
+            <span className="rec-countdown" data-testid="rec-countdown">
+              Départ dans {countdown}…
+            </span>
           )}
           <span className="rec-time" data-testid="rec-time">
             {formatDuration(seconds)}
@@ -607,8 +719,11 @@ function TakeRow({ t }: { t: LocalTake }) {
  * Prises interrompues (onglet fermé, navigateur planté, ordinateur redémarré) : les morceaux restés sur
  * l'appareil sont comptés, la prise est clôturée et l'envoi repart. On ne perd au plus que la dernière seconde.
  */
-async function recoverTakes(up: Uploader, say: (s: string) => void) {
-  const pending = loadTakes().filter((t) => t.state !== "done");
+async function recoverTakes(up: Uploader, say: (s: string) => void, lockKey: string) {
+  // Seulement les prises de cette place (un autre onglet peut être en train d'enregistrer les siennes).
+  const pending = loadTakes().filter(
+    (t) => t.state !== "done" && (t.lockKey ?? "solo") === lockKey,
+  );
   let recoveredSeconds = 0;
   let n = 0;
   for (const t of pending) {

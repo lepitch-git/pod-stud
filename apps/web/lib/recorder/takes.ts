@@ -1,4 +1,10 @@
-import { parseChunkName, type Gap, type Marker, type TakeManifest } from "@pod-stud/shared";
+import {
+  parseChunkName,
+  type Gap,
+  type Marker,
+  type SyncPoint,
+  type TakeManifest,
+} from "@pod-stud/shared";
 
 /**
  * Prises enregistrées sur cet appareil. L'état est gardé dans localStorage (écriture immédiate,
@@ -22,6 +28,12 @@ export interface LocalTake {
   markers: Marker[];
   gaps: Gap[];
   browser: string;
+  sessionId?: string;
+  /** Place (séance et rôle) qui a enregistré la prise, pour la reprise après plantage. */
+  lockKey?: string;
+  startServerMs?: number;
+  syncPoints?: SyncPoint[];
+  clockRttMs?: number;
   /** Morceaux que le serveur n'a jamais reçus (perdus), signalés à la clôture. */
   lost?: number[];
   /** Vrai si la prise a été interrompue (onglet fermé, plantage) puis reprise. */
@@ -82,6 +94,10 @@ export function toManifest(t: LocalTake): TakeManifest {
     markers: t.markers,
     gaps: t.gaps,
     browser: t.browser,
+    sessionId: t.sessionId,
+    startServerMs: t.startServerMs,
+    syncPoints: t.syncPoints,
+    clockRttMs: t.clockRttMs,
   };
 }
 
