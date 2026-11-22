@@ -65,3 +65,13 @@ PW_PROJECTS=chromium pnpm test:e2e   # un seul navigateur
 ```
 
 Les tests de bout en bout portent les numéros du cahier de recette (par exemple `SOC-02`).
+
+## Déploiement
+
+Vercel héberge l'interface web (`apps/web`, réglage « Root Directory ») :
+
+- chaque demande de fusion reçoit automatiquement un lien de test, publié en commentaire de la PR ;
+- la branche `preprod` a un lien fixe pour la recette globale ;
+- la branche `main` est la production (« Production Branch » dans Settings › Git).
+
+Les réglages secrets sont saisis séparément pour « Preview » (fonctions et préprod) et « Production ».
