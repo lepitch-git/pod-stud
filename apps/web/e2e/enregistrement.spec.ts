@@ -137,6 +137,6 @@ test("REC-11 : une piste introuvable affiche un message clair, jamais du code br
   await page.goto("/api/prises/20260101-000000-inconnue/piste.wav");
   await expect(page.getByTestId("download-error")).toContainText("ne retrouve pas cette piste");
   await expect(page.getByText('{"error"')).toHaveCount(0);
-  await page.getByRole("link", { name: "Revenir à l'enregistrement" }).click();
-  await expect(page).toHaveURL(/\/enregistrement$/);
+  await page.getByRole("link", { name: "Accueil" }).click();
+  await expect(page).toHaveURL(/\/$/);
 });

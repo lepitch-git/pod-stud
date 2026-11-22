@@ -8,8 +8,8 @@ const steps = [
     title: "Enregistrement local résistant aux coupures, envoi progressif",
     state: "livré",
   },
-  { n: 4, title: "Démarrage simultané et alignement sans clap", state: "en cours" },
-  { n: 5, title: "Collectif, émissions, épisodes, sessions, invitations", state: "à venir" },
+  { n: 4, title: "Démarrage simultané et alignement sans clap", state: "livré" },
+  { n: 5, title: "Collectif, émissions, épisodes, sessions, invitations", state: "en cours" },
   { n: 6, title: "Studio : traitements, presets, transcription, montage", state: "à venir" },
 ];
 
@@ -22,7 +22,10 @@ export default function Home() {
         enregistrement est envoyé au fil de l&apos;eau : une coupure réseau ne fait rien perdre.
       </p>
       <p>
-        <Link className="button" href="/test-equipement">
+        <Link className="button" href="/collectifs" data-testid="home-collectifs">
+          Mes collectifs et émissions
+        </Link>{" "}
+        <Link className="button secondary" href="/test-equipement">
           Tester mon équipement
         </Link>{" "}
         <Link className="button secondary" href="/enregistrement">

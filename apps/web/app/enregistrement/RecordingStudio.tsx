@@ -648,7 +648,7 @@ export function RecordingStudio({ session }: { session?: SessionControl } = {}) 
         ) : (
           <ul className="takes" data-testid="rec-takes">
             {takes.map((t) => (
-              <TakeRow key={t.id} t={t} />
+              <TakeRow key={t.id} t={t} guest={session?.role === "invite"} />
             ))}
           </ul>
         )}
@@ -659,7 +659,7 @@ export function RecordingStudio({ session }: { session?: SessionControl } = {}) 
 
 type Availability = "checking" | "ok" | "missing" | "unknown";
 
-function TakeRow({ t }: { t: LocalTake }) {
+function TakeRow({ t, guest = false }: { t: LocalTake; guest?: boolean }) {
   const when = new Date(t.startedAt).toLocaleString("fr-FR", {
     dateStyle: "short",
     timeStyle: "short",
@@ -691,6 +691,9 @@ function TakeRow({ t }: { t: LocalTake }) {
           </span>
         ) : avail === "checking" ? (
           "envoyée ✅ · vérification sur le serveur…"
+        ) : guest ? (
+          // Les invités n'ont accès à aucun fichier (CPT-09) : l'hôte récupère les pistes.
+          <span data-testid="rec-sent">envoyée {t.lost?.length ? "⚠️ (incomplète)" : "✅"}</span>
         ) : (
           <>
             envoyée {t.lost?.length ? "⚠️ (incomplète)" : "✅"} ·{" "}

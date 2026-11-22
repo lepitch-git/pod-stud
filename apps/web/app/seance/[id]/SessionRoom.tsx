@@ -69,7 +69,27 @@ function myId(): string {
  * Séance à plusieurs (étape 4) : salle d'attente, entrée des invités par l'hôte, tableau de bord,
  * départ et arrêt communs à l'heure serveur, puis pistes alignées sans clap.
  */
-export function SessionRoom({ sessionId, host }: { sessionId: string; host: boolean }) {
+export function SessionRoom({
+  sessionId,
+  host,
+  invitation,
+  defaultName,
+  mode = "audio",
+  title,
+  manageHref,
+}: {
+  sessionId: string;
+  host: boolean;
+  /** Lien d'invité d'une session de collectif. */
+  invitation?: string;
+  /** Nom du membre connecté, proposé par défaut. */
+  defaultName?: string;
+  /** Type de session, repris par le lien vers le test d'équipement. */
+  mode?: string;
+  title?: string;
+  /** Page de la session dans le collectif (invitations, pistes). */
+  manageHref?: string;
+}) {
   const role: "hote" | "invite" = host ? "hote" : "invite";
   const [me] = useState(() => (typeof window === "undefined" ? "" : myId()));
   const [name, setName] = useState("");
@@ -86,7 +106,7 @@ export function SessionRoom({ sessionId, host }: { sessionId: string; host: bool
   const admittedRef = useRef(admitted);
   admittedRef.current = admitted;
 
-  useEffect(() => setName(loadName()), []);
+  useEffect(() => setName(loadName() || defaultName || ""), [defaultName]);
 
   const onMessage = useCallback(
     ({ from, msg }: Envelope) => {
@@ -127,7 +147,7 @@ export function SessionRoom({ sessionId, host }: { sessionId: string; host: bool
     let cancelled = false;
     void (async () => {
       // Conversation en direct si LiveKit est configuré, sinon relais de test par le serveur.
-      const lk = await LiveKitBus.connect(sessionId, me, name, onMessage);
+      const lk = await LiveKitBus.connect(sessionId, me, name, onMessage, invitation);
       if (cancelled) return lk?.close();
       b = lk ?? new RelayBus(sessionId, me, onMessage);
       bus.current = b;
@@ -153,7 +173,7 @@ export function SessionRoom({ sessionId, host }: { sessionId: string; host: bool
       sc.stop();
       b?.close();
     };
-  }, [joined, me, name, role, sessionId, onMessage]);
+  }, [joined, me, name, role, sessionId, onMessage, invitation]);
 
   // Entrée dans la conversation en direct une fois admis (l'hôte l'est d'office).
   useEffect(() => {
@@ -208,7 +228,7 @@ export function SessionRoom({ sessionId, host }: { sessionId: string; host: bool
   if (!joined)
     return (
       <>
-        <h1>{host ? "Votre séance" : "Rejoindre la séance"}</h1>
+        <h1>{title ?? (host ? "Votre séance" : "Rejoindre la séance")}</h1>
         <section className="card">
           <label className="field">
             Votre nom
@@ -233,7 +253,7 @@ export function SessionRoom({ sessionId, host }: { sessionId: string; host: bool
 
   return (
     <>
-      <h1>{host ? "Votre séance" : "Séance"}</h1>
+      <h1>{title ?? (host ? "Votre séance" : "Séance")}</h1>
       {busKind === "relais" && (
         <p className="advice-box" data-testid="room-relay-warning">
           ⚠️ Version de test sans conversation en direct : les participants ne s&apos;entendent pas,
@@ -251,22 +271,39 @@ export function SessionRoom({ sessionId, host }: { sessionId: string; host: bool
       {host && (
         <section className="card">
           <h2>Inviter</h2>
-          <p>Envoyez ce lien aux invités :</p>
-          <p>
-            <code data-testid="room-invite">{inviteUrl}</code>{" "}
-            <button
-              type="button"
-              className="button secondary"
-              onClick={() =>
-                void navigator.clipboard
-                  ?.writeText(inviteUrl)
-                  .then(() => setCopied(true))
-                  .catch(() => undefined)
-              }
-            >
-              {copied ? "Copié" : "Copier le lien"}
-            </button>
-          </p>
+          {manageHref ? (
+            <p>
+              Chaque invité a son propre lien, révocable :{" "}
+              <a
+                href={`${manageHref}#invitations`}
+                target="_blank"
+                rel="noreferrer"
+                data-testid="room-manage-invites"
+              >
+                gérer les invitations
+              </a>{" "}
+              (s&apos;ouvre dans un autre onglet).
+            </p>
+          ) : (
+            <>
+              <p>Envoyez ce lien aux invités :</p>
+              <p>
+                <code data-testid="room-invite">{inviteUrl}</code>{" "}
+                <button
+                  type="button"
+                  className="button secondary"
+                  onClick={() =>
+                    void navigator.clipboard
+                      ?.writeText(inviteUrl)
+                      .then(() => setCopied(true))
+                      .catch(() => undefined)
+                  }
+                >
+                  {copied ? "Copié" : "Copier le lien"}
+                </button>
+              </p>
+            </>
+          )}
           {waiting.length > 0 && (
             <div data-testid="room-waiting">
               <h3>En salle d&apos;attente</h3>
@@ -308,8 +345,11 @@ export function SessionRoom({ sessionId, host }: { sessionId: string; host: bool
           <h2>Salle d&apos;attente</h2>
           <p>
             Bonjour {name} ! L&apos;hôte va vous faire entrer. En attendant, vérifiez votre micro
-            avec le <a href="/test-equipement?mode=audio">test d&apos;équipement</a> dans un autre
-            onglet.
+            avec le{" "}
+            <a href={`/test-equipement?mode=${mode}`} target="_blank" rel="noreferrer">
+              test d&apos;équipement
+            </a>{" "}
+            dans un autre onglet.
           </p>
         </section>
       ) : (

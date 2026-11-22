@@ -1,4 +1,5 @@
 import { markersToLabels } from "@pod-stud/shared";
+import { sessionFilesDenied } from "@/lib/server/access";
 import { errorResponse } from "@/lib/server/http";
 import { badId, readManifest } from "@/lib/server/takes";
 
@@ -17,6 +18,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       404,
       "Le serveur ne retrouve pas cette prise (stockage temporaire du lien de test vidé).",
     );
+  if (m.sessionId) {
+    const denied = await sessionFilesDenied(req, m.sessionId);
+    if (denied) return denied;
+  }
   return new Response(markersToLabels(m.markers), {
     headers: {
       "content-type": "text/plain; charset=utf-8",
