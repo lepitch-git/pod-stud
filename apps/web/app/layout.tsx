@@ -18,7 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             Pod Stud
           </Link>
           <nav>
-            <Link href="/diagnostic">Diagnostic navigateur</Link>
+            <Link href="/test-equipement">Tester mon équipement</Link>
           </nav>
         </header>
         <main>{children}</main>
