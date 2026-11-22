@@ -11,7 +11,7 @@ test("SOC-01 : la page d'accueil s'affiche en français avec l'avancement", asyn
 
 test("SOC-02 : le diagnostic donne un verdict et détaille chaque contrôle", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("link", { name: "Tester mon navigateur" }).click();
+  await page.getByRole("link", { name: "Diagnostic navigateur" }).click();
   await expect(page).toHaveURL(/\/diagnostic$/);
   const diag = page.getByTestId("diagnostic");
   await expect(diag).toBeVisible();

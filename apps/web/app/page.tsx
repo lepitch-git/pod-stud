@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 const steps = [
-  { n: 1, title: "Socle du projet et cahier de recette", state: "en cours" },
-  { n: 2, title: "Salle d'attente et test micro / vidéo", state: "à venir" },
+  { n: 1, title: "Socle du projet et cahier de recette", state: "livré" },
+  { n: 2, title: "Salle d'attente et test micro / vidéo", state: "en cours" },
   {
     n: 3,
     title: "Enregistrement local résistant aux coupures, envoi progressif",
@@ -22,9 +22,10 @@ export default function Home() {
         enregistrement est envoyé au fil de l&apos;eau : une coupure réseau ne fait rien perdre.
       </p>
       <p>
-        <Link className="button" href="/diagnostic">
-          Tester mon navigateur
-        </Link>
+        <Link className="button" href="/test-equipement">
+          Tester mon équipement
+        </Link>{" "}
+        <Link href="/diagnostic">Diagnostic navigateur</Link>
       </p>
       <h2>Avancement</h2>
       <ol className="steps" data-testid="steps">

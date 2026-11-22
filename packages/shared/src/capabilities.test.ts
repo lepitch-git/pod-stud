@@ -42,11 +42,21 @@ describe("evaluateCapabilities", () => {
     expect(evaluateCapabilities({ ...full, opfs: false, indexedDb: false }).verdict).toBe("ko");
   });
 
-  it("alerte quand l'espace disque est faible", () => {
-    const d = evaluateCapabilities({ ...full, storageAvailableBytes: 500 * 1024 ** 2 });
+  it("exprime l'espace en durée d'enregistrement", () => {
+    const c = evaluateCapabilities({ ...full, storageAvailableBytes: 10 * 1024 ** 3 }).checks.find(
+      (x) => x.id === "storageSpace",
+    );
+    expect(c?.status).toBe("ok");
+    expect(c?.detail).toContain("19 h 10 d'audio");
+    expect(c?.detail).toContain("2 h 50 en vidéo");
+  });
+
+  it("alerte en orange, jamais en rouge, quand la place est juste", () => {
+    const d = evaluateCapabilities({ ...full, storageAvailableBytes: 1024 ** 3 });
     const c = d.checks.find((x) => x.id === "storageSpace");
     expect(c?.status).toBe("warn");
-    expect(c?.detail).toContain("500 Mo");
+    expect(c?.detail).toContain("1 h 50 d'audio");
+    expect(d.verdict).toBe("warn");
   });
 
   it("ne bloque pas une session audio si la vidéo est indisponible", () => {
