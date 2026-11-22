@@ -15,7 +15,7 @@ import { alignedWav, attachment } from "@/lib/server/wav";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 800;
+export const maxDuration = 300;
 
 /**
  * Archive ZIP (ENR-21) d'une prise, d'une session, d'un épisode ou d'une émission entière :
