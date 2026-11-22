@@ -6,14 +6,18 @@ import {
   isValidEmail,
   LANGUAGES,
   normalizeEmail,
+  normalizeTreatment,
+  PRESETS,
   roleLabel,
   ROLES,
   SESSION_MODES,
   type Role,
   type SessionKind,
+  type Treatment,
 } from "@pod-stud/shared";
 import { redirect } from "next/navigation";
 import { requireAction } from "@/lib/server/access";
+import { sessionTakes } from "@/lib/server/align";
 import {
   clearSessionCookie,
   currentUser,
@@ -486,6 +490,52 @@ export async function revokeGuestInvite(cid: string, sid: string, id: string) {
     if (inv && !inv.revokedAt) {
       inv.revokedAt = new Date().toISOString();
       audit(c, by, `Invitation d'invité « ${inv.label} » révoquée`);
+    }
+  });
+}
+
+// ——— Studio : traitement de la voix (étape 6a) ———
+
+function treatmentFromForm(fd: FormData): Treatment {
+  const n = (k: string) => Number(str(fd, k, 5));
+  return normalizeTreatment({
+    preset: str(fd, "preset", 20) as Treatment["preset"],
+    voix: n("voix"),
+    bruit: n("bruit"),
+    ambiance: n("ambiance"),
+    antiBouche: str(fd, "antiBouche", 10) as Treatment["antiBouche"],
+    respirations: n("respirations") as Treatment["respirations"],
+  });
+}
+
+/**
+ * Réglages de traitement : pour une piste, pour toutes les pistes de la prise, ou par défaut pour
+ * l'émission (les pistes sans réglage propre le suivent).
+ */
+export async function saveTreatment(
+  cid: string,
+  sid: string,
+  takeId: string,
+  priseTakeIds: string[],
+  fd: FormData,
+) {
+  const t = treatmentFromForm(fd);
+  const portee = str(fd, "portee", 10);
+  const label = PRESETS.find((p) => p.key === t.preset)?.label;
+  const known = new Set((await sessionTakes(sid)).map((x) => x.id));
+  const takes = (portee === "piste" ? [takeId] : priseTakeIds).filter((x) => known.has(x));
+  await sessionAction(cid, sid, "fichiers", (c, by) => {
+    const s = c.sessions.find((x) => x.id === sid);
+    c.treatments ??= {};
+    if (portee === "emission") {
+      const e = c.emissions.find((x) => x.id === s?.emissionId);
+      if (!e) throw new Error("Émission introuvable.");
+      e.treatment = t;
+      for (const id of takes) delete c.treatments[id];
+      audit(c, by, `Traitement par défaut de l'émission « ${e.name} » : ${label}`);
+    } else {
+      for (const id of takes) c.treatments[id] = t;
+      audit(c, by, `Traitement de ${takes.length} piste(s) de « ${s?.name} » : ${label}`);
     }
   });
 }

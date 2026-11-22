@@ -10,6 +10,7 @@ import {
   createGuestInvite,
   renameTrack,
   revokeGuestInvite,
+  saveTreatment,
   trashPrise,
   trashSession,
   unarchiveSession,
@@ -17,7 +18,9 @@ import {
 } from "../../../actions";
 import { Crumbs, ErrorBanner, frDate, frDay } from "../../../common";
 import { ArchiveForm, ConfirmSubmit, CopyButton } from "../../../ui";
+import type { PostPrise } from "./Postproductions";
 import { PrisesBrowser, type PriseItem } from "./PrisesBrowser";
+import { postprodState } from "@/lib/server/postprod";
 
 export const metadata: Metadata = { title: "Session · Pod Stud" };
 export const dynamic = "force-dynamic";
@@ -45,26 +48,54 @@ export default async function Page({
   const record = can(m, "enregistrer", s.emissionId);
   const files = can(m, "fichiers", s.emissionId);
   const origin = await siteOrigin();
-  const prises: PriseItem[] = s.archivedAt
-    ? []
-    : (await sessionPrises(c, s))
-        .filter((p) => !p.deletedAt)
+  const live = s.archivedAt ? [] : (await sessionPrises(c, s)).filter((p) => !p.deletedAt);
+  const post: PostPrise[] = files
+    ? [...live]
+        .sort((a, b) => b.recordedAt.localeCompare(a.recordedAt))
         .map((p) => ({
           key: p.key,
           number: p.number,
-          recordedAt: p.recordedAt,
           recordedLabel: frDate(p.recordedAt),
-          seconds: p.seconds,
-          bytes: p.bytes,
-          tracks: p.tracks.map((t) => ({
-            takeId: t.takeId,
-            participant: t.participant,
-            displayName: t.displayName,
-            fileName: t.fileName,
-            seconds: t.seconds,
-            complete: t.complete,
-          })),
-        }));
+          tracks: p.tracks.map((t) => {
+            const st = postprodState(c, s, t.takeId);
+            return {
+              takeId: t.takeId,
+              displayName: t.displayName,
+              fileName: t.fileName,
+              seconds: t.seconds,
+              complete: t.complete,
+              treatment: st.treatment,
+              own: Boolean(c.treatments?.[t.takeId]),
+              state: st.state,
+              done: st.pp
+                ? {
+                    inputLufs: st.pp.inputLufs,
+                    outputLufs: st.pp.outputLufs,
+                    repaired: st.pp.repaired,
+                    breaths: st.pp.breaths,
+                  }
+                : null,
+            };
+          }),
+        }))
+    : [];
+  const prises: PriseItem[] = live.map((p) => ({
+    key: p.key,
+    number: p.number,
+    recordedAt: p.recordedAt,
+    recordedLabel: frDate(p.recordedAt),
+    seconds: p.seconds,
+    bytes: p.bytes,
+    tracks: p.tracks.map((t) => ({
+      takeId: t.takeId,
+      participant: t.participant,
+      displayName: t.displayName,
+      fileName: t.fileName,
+      seconds: t.seconds,
+      complete: t.complete,
+    })),
+  }));
+
   const invites = c.guestInvites.filter((i) => i.sessionId === sid).reverse();
   const mode = SESSION_MODES.find((x) => x.key === s.mode)?.label;
   const lang = LANGUAGES.find((x) => x.key === s.language)?.label;
@@ -155,6 +186,9 @@ export default async function Page({
             files={files}
             renameTrack={renameTrack}
             trashPrise={trashPrise}
+            post={post}
+            emissionName={e?.name ?? "Émission"}
+            saveTreatment={saveTreatment}
           />
         </>
       )}

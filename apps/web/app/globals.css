@@ -652,3 +652,80 @@ table.list td {
 details.card > summary {
   cursor: pointer;
 }
+
+/* Étape 6a : postproductions */
+.post-track {
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border);
+}
+.post-track:first-child {
+  border-top: 0;
+}
+.post-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.post-a-jour {
+  color: var(--ok);
+}
+.post-perime {
+  color: var(--warn);
+}
+.post-progress {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.post-progress progress {
+  flex: 1 1 12rem;
+}
+.post-editor {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.post-editor fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0 0 0.75rem;
+}
+.slider input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.slider-ends {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+}
+.post-preview {
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  background: var(--bg);
+  border-radius: 8px;
+}
+.post-preview input.short {
+  width: 5rem;
+}
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.segmented button {
+  border: 0;
+  background: var(--card);
+  color: var(--fg);
+  padding: 0.35rem 0.8rem;
+  font: inherit;
+  cursor: pointer;
+}
+.segmented button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-fg);
+}

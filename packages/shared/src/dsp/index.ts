@@ -7,3 +7,4 @@ export * from "./fft";
 export * from "./loudness";
 export * from "./presets";
 export * from "./stage";
+export * from "./track";

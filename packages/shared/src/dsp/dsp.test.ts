@@ -236,3 +236,14 @@ describe("préréglages", () => {
     expect(dbToGain(0)).toBe(1);
   });
 });
+
+describe("piste traitée", () => {
+  it("gain final : volume cible du preset, en tenant compte de la marge de stockage", async () => {
+    const { finalGainDb, isTreatmentKey } = await import("./track");
+    expect(finalGainDb(normalizeTreatment({ preset: "naturel" }), -20)).toBeCloseTo(16);
+    expect(finalGainDb(normalizeTreatment({ preset: "diffusion" }), -20)).toBeCloseTo(9);
+    expect(finalGainDb(normalizeTreatment({ preset: "naturel" }), -80)).toBeCloseTo(42);
+    expect(isTreatmentKey(treatmentKey(DEFAULT_TREATMENT))).toBe(true);
+    expect(isTreatmentKey("../x")).toBe(false);
+  });
+});
