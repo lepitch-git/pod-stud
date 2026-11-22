@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Vérifications (format, types, tests unitaires, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  e2e:
+    name: Recette automatique (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, firefox, webkit, mobile-safari, mobile-chrome]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Installer le navigateur
+        working-directory: apps/web
+        run: npx playwright install --with-deps ${{ matrix.project == 'mobile-safari' && 'webkit' || matrix.project == 'mobile-chrome' && 'chromium' || matrix.project }}
+      - name: Lancer les tests
+        working-directory: apps/web
+        run: npx playwright test --project=${{ matrix.project }} --trace off
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-${{ matrix.project }}
+          path: apps/web/playwright-report
