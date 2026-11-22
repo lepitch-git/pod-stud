@@ -5,3 +5,4 @@ export * from "./devices";
 export * from "./recording";
 export * from "./sync";
 export * from "./collectif";
+export * from "./dsp";
