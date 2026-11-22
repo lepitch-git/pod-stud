@@ -22,6 +22,7 @@ import {
   measureBrightness,
   measureNetwork,
   micConstraints,
+  sleep,
   stopStream,
 } from "@/lib/media";
 import { mediaErrorHelp } from "@/lib/permissionHelp";
@@ -160,10 +161,14 @@ export default function EquipmentTest() {
     setMicPhase("speech");
     const speech = await collectFrames(meter, 6000);
     if (recorder) {
-      await new Promise<void>((resolve) => {
-        recorder!.onstop = () => resolve();
-        recorder!.stop();
-      });
+      // L'arrêt de l'enregistreur ne doit jamais bloquer le test : 2 secondes au plus.
+      await Promise.race([
+        new Promise<void>((resolve) => {
+          recorder!.onstop = () => resolve();
+          recorder!.stop();
+        }),
+        sleep(2000),
+      ]);
       if (chunks.length)
         setPlayback(URL.createObjectURL(new Blob(chunks, { type: chunks[0]?.type })));
     }

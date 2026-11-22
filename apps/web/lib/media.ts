@@ -23,6 +23,8 @@ export function stopStream(stream: MediaStream | null) {
   stream?.getTracks().forEach((t) => t.stop());
 }
 
+export const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
 type AudioCtor = typeof AudioContext;
 
 /** Vu-mètre : lit le micro en continu et rend des statistiques par bloc. */
@@ -45,8 +47,13 @@ export class LevelMeter {
     this.buf = new Float32Array(this.analyser.fftSize);
   }
 
+  /**
+   * Relance le contexte audio s'il est suspendu. Sans sortie audio disponible, certains navigateurs
+   * (Firefox notamment) ne terminent jamais cette promesse : on n'attend donc pas plus d'une seconde.
+   */
   async resume() {
-    if (this.ctx.state === "suspended") await this.ctx.resume();
+    if (this.ctx.state !== "suspended") return;
+    await Promise.race([this.ctx.resume().catch(() => undefined), sleep(1000)]);
   }
 
   read(): FrameStats {
@@ -70,8 +77,6 @@ export class LevelMeter {
     await this.ctx.close().catch(() => undefined);
   }
 }
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Relève des blocs pendant `ms` millisecondes, toutes les 50 ms. */
 export async function collectFrames(meter: LevelMeter, ms: number): Promise<FrameStats[]> {
