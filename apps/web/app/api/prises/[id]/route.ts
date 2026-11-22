@@ -17,6 +17,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     {
       id,
       complete: !!manifest,
+      /** La piste est téléchargeable : prise clôturée et tous les morceaux attendus présents. */
+      available: !!manifest && chunks.length >= manifest.chunkCount - manifest.lost.length,
       chunks: chunks.length,
       bytes,
       seconds: bytes / BYTES_PER_SAMPLE / rate,

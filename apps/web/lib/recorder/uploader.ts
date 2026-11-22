@@ -186,7 +186,11 @@ export class Uploader {
         return;
       }
       if (!res.ok) throw new Error(`le serveur a répondu ${res.status}`);
-      updateTake(id, (x) => (x.state = "done"));
+      const { lost } = (await res.json().catch(() => ({}))) as { lost?: number[] };
+      updateTake(id, (x) => {
+        x.state = "done";
+        x.lost = lost ?? [];
+      });
       await removeTakeDir(id);
       this.emit();
     } catch (e) {

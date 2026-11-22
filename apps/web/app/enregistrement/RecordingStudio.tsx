@@ -474,7 +474,9 @@ export function RecordingStudio() {
             data-online={st?.online}
           >
             {current.state === "done"
-              ? "✅ Tout est envoyé, vous pouvez fermer la page."
+              ? current.lost?.length
+                ? `⚠️ Envoi terminé, mais ${current.lost.length * 5} secondes environ n'ont pas pu être récupérées par le serveur.`
+                : "✅ Tout est envoyé, vous pouvez fermer la page."
               : st && (!st.online || st.error)
                 ? `⏸️ Envoi en attente (${st.online ? st.error : "pas de connexion"}) : ${pendingCurrent} morceau${pendingCurrent > 1 ? "x" : ""} gardé${pendingCurrent > 1 ? "s" : ""} sur l'appareil. L'envoi reprendra tout seul.`
                 : phase === "recording"
@@ -543,28 +545,54 @@ export function RecordingStudio() {
   );
 }
 
+type Availability = "checking" | "ok" | "missing" | "unknown";
+
 function TakeRow({ t }: { t: LocalTake }) {
   const when = new Date(t.startedAt).toLocaleString("fr-FR", {
     dateStyle: "short",
     timeStyle: "short",
   });
+  // On vérifie que le serveur a bien la piste avant de proposer le téléchargement.
+  const [avail, setAvail] = useState<Availability>("checking");
+  useEffect(() => {
+    if (t.state !== "done") return;
+    let off = false;
+    fetch(`/api/prises/${t.id}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { available?: boolean } | null) => {
+        if (!off) setAvail(j ? (j.available ? "ok" : "missing") : "unknown");
+      })
+      .catch(() => !off && setAvail("unknown"));
+    return () => {
+      off = true;
+    };
+  }, [t.id, t.state]);
+
   return (
-    <li data-testid="rec-take" data-state={t.state} data-id={t.id}>
+    <li data-testid="rec-take" data-state={t.state} data-id={t.id} data-available={avail}>
       <strong>{t.name}</strong> · {when}
       {t.participant && ` · ${t.participant}`} ·{" "}
       {t.state === "done" ? (
-        <>
-          envoyée ✅ ·{" "}
-          <a href={`/api/prises/${t.id}/piste.wav`} data-testid="rec-download">
-            Télécharger la piste WAV
-          </a>
-          {t.markers.length > 0 && (
-            <>
-              {" "}
-              · <a href={`/api/prises/${t.id}/marqueurs.txt`}>Marqueurs (Audacity)</a>
-            </>
-          )}
-        </>
+        avail === "missing" ? (
+          <span className="hint" data-testid="rec-missing">
+            envoyée, mais le serveur de test ne l&apos;a plus (stockage temporaire vidé)
+          </span>
+        ) : avail === "checking" ? (
+          "envoyée ✅ · vérification sur le serveur…"
+        ) : (
+          <>
+            envoyée {t.lost?.length ? "⚠️ (incomplète)" : "✅"} ·{" "}
+            <a href={`/api/prises/${t.id}/piste.wav`} data-testid="rec-download">
+              Télécharger la piste WAV
+            </a>
+            {t.markers.length > 0 && (
+              <>
+                {" "}
+                · <a href={`/api/prises/${t.id}/marqueurs.txt`}>Marqueurs (Audacity)</a>
+              </>
+            )}
+          </>
+        )
       ) : t.state === "recording" ? (
         "en cours d'enregistrement"
       ) : (

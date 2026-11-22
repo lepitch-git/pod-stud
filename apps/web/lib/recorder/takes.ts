@@ -22,6 +22,8 @@ export interface LocalTake {
   markers: Marker[];
   gaps: Gap[];
   browser: string;
+  /** Morceaux que le serveur n'a jamais reçus (perdus), signalés à la clôture. */
+  lost?: number[];
   /** Vrai si la prise a été interrompue (onglet fermé, plantage) puis reprise. */
   recovered?: boolean;
 }
