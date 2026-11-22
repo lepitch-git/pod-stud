@@ -62,6 +62,7 @@ export function RecordingStudio() {
   const [markers, setMarkers] = useState<Marker[]>([]);
   const [gaps, setGaps] = useState<Gap[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [audioStalled, setAudioStalled] = useState(false);
   const [wakeLock, setWakeLock] = useState<"on" | "off" | "absent">("off");
   const [, setTick] = useState(0);
   const [takes, setTakes] = useState<LocalTake[]>([]);
@@ -162,6 +163,10 @@ export function RecordingStudio() {
     const t = setInterval(() => {
       if (meter.current) setLevel(meter.current.read().rmsDb);
       if (phaseRef.current !== "recording") return;
+      // Contexte audio en pause (lecture automatique bloquée, appli en arrière-plan sur iPhone…) :
+      // on propose de le relancer d'un geste.
+      const ctxState = recorder.current?.ctx.state as string | undefined;
+      setAudioStalled(!!ctxState && ctxState !== "running");
       const c = clock.current;
       const wall = (performance.now() - c.start) / 1000;
       const captured = c.frames / c.rate;
@@ -490,6 +495,18 @@ export function RecordingStudio() {
           </p>
         )}
 
+        {phase === "recording" && audioStalled && (
+          <p className="error-box" data-testid="rec-audio-stalled">
+            Le navigateur a mis le son en pause : rien n&apos;est enregistré pour le moment.{" "}
+            <button
+              type="button"
+              className="button"
+              onClick={() => void recorder.current?.ctx.resume().catch(() => undefined)}
+            >
+              Reprendre l&apos;enregistrement du son
+            </button>
+          </p>
+        )}
         {gaps.length > 0 && (
           <p className="advice-box" data-testid="rec-gaps">
             ⚠️ Le son ne nous est pas parvenu pendant{" "}
