@@ -10,13 +10,22 @@ qu'aucune coupure réseau ne fasse perdre de son.
 
 ## Comment on avance
 
-On construit fonction par fonction. Chaque étape :
+On construit fonction par fonction, avec trois environnements :
 
-1. est développée sur sa propre branche, avec une demande de fusion (pull request) ;
-2. est testée automatiquement à chaque modification sur les moteurs de Chrome, Firefox et Safari,
-   ordinateur et mobile simulés (onglet « Actions » de GitHub) ;
-3. ajoute ses cas de test au cahier de recette, que vous déroulez sur une version en ligne ;
-4. n'est fusionnée sur la branche principale qu'après votre accord.
+| Branche           | Environnement                                         | Rôle                                                           |
+| ----------------- | ----------------------------------------------------- | -------------------------------------------------------------- |
+| `fonction/NN-nom` | Test de fonction (lien propre à la demande de fusion) | Tester une fonction isolément                                  |
+| `preprod`         | Préprod (lien fixe)                                   | Recette globale : on rejoue les cas des fonctions déjà livrées |
+| `main`            | Prod                                                  | Version utilisée par le collectif                              |
+
+1. Chaque fonction est développée sur sa branche `fonction/NN-nom`, avec une demande de fusion vers
+   `preprod`, testée automatiquement (Chrome, Firefox, Safari, ordinateur et mobile simulés).
+2. Ses cas de test sont ajoutés au cahier de recette et déroulés sur son lien de test.
+3. Après validation, elle est fusionnée dans `preprod`, où l'on refait la recette globale.
+4. `preprod` n'est fusionnée dans `main` (mise en prod) qu'avec l'accord explicite du collectif.
+
+Préprod et prod ont chacune leur base de données, leur stockage et leurs clés : un essai en préprod
+ne touche jamais les enregistrements réels.
 
 | Étape | Contenu                                                       | Exigences                       |
 | ----- | ------------------------------------------------------------- | ------------------------------- |
