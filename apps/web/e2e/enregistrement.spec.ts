@@ -14,6 +14,18 @@ async function startRecording(page: Page) {
   await page.getByTestId("rec-name").fill("Testeur");
   await expect(page.getByTestId("rec-start")).toBeEnabled({ timeout: 15_000 });
   await page.getByTestId("rec-start").click();
+  // En cas d'échec au démarrage, afficher le message de la page plutôt qu'un simple délai dépassé.
+  await expect(page.getByTestId("rec-panel"))
+    .toHaveAttribute("data-phase", "recording", {
+      timeout: 15_000,
+    })
+    .catch(async (e) => {
+      const err = await page
+        .getByTestId("rec-error")
+        .textContent()
+        .catch(() => null);
+      throw new Error(`${err ?? "pas de message d'erreur"} / ${(e as Error).message}`);
+    });
   await expect(page.getByTestId("rec-local")).toHaveAttribute("data-ok", "true", {
     timeout: 15_000,
   });

@@ -262,7 +262,9 @@ export function RecordingStudio() {
       browser: `${browser.label} ${browser.version}`.trim(),
     };
     try {
-      await navigator.storage?.persist?.().catch(() => false);
+      // Stockage persistant demandé sans attendre : Firefox affiche une question à l'utilisateur
+      // et la réponse peut tarder ; l'enregistrement ne doit pas en dépendre.
+      void navigator.storage?.persist?.().catch(() => false);
       const rec = new LocalRecorder({
         onChunk: (index) => {
           setWritten(index + 1);
