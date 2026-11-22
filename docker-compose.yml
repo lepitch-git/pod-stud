@@ -1,0 +1,25 @@
+# Services de développement local : base de données, file de tâches, stockage objet compatible S3.
+# Lancement : docker compose up -d
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: podstud
+      POSTGRES_PASSWORD: podstud
+      POSTGRES_DB: podstud
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+  redis:
+    image: redis:7
+    ports: ["6379:6379"]
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: podstud
+      MINIO_ROOT_PASSWORD: podstud-dev-secret
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [miniodata:/data]
+volumes:
+  pgdata:
+  miniodata:

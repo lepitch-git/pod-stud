@@ -1,0 +1,77 @@
+# Pod Stud
+
+Studio d'enregistrement de podcast à distance pour le collectif : chaque participant est enregistré
+sur sa propre machine en pleine qualité, et son enregistrement est envoyé au fil de l'eau pour
+qu'aucune coupure réseau ne fasse perdre de son.
+
+- Spécifications : [Plateforme d'enregistrement podcast à distance](https://claude.ai/artifact/8GMKJ5eKzBa3KTcJaQZQZX)
+  (exigences ENR-xx pour l'enregistrement, STU-xx pour le studio)
+- Cahier de recette : [Cahier de recette — Pod Stud](https://claude.ai/artifact/5WLUHrMvcATprRDLiHntvU)
+
+## Comment on avance
+
+On construit fonction par fonction, avec trois environnements :
+
+| Branche           | Environnement                                         | Rôle                                                           |
+| ----------------- | ----------------------------------------------------- | -------------------------------------------------------------- |
+| `fonction/NN-nom` | Test de fonction (lien propre à la demande de fusion) | Tester une fonction isolément                                  |
+| `preprod`         | Préprod (lien fixe)                                   | Recette globale : on rejoue les cas des fonctions déjà livrées |
+| `main`            | Prod                                                  | Version utilisée par le collectif                              |
+
+1. Chaque fonction est développée sur sa branche `fonction/NN-nom`, avec une demande de fusion vers
+   `preprod`, testée automatiquement (Chrome, Firefox, Safari, ordinateur et mobile simulés).
+2. Ses cas de test sont ajoutés au cahier de recette et déroulés sur son lien de test.
+3. Après validation, elle est fusionnée dans `preprod`, où l'on refait la recette globale.
+4. `preprod` n'est fusionnée dans `main` (mise en prod) qu'avec l'accord explicite du collectif.
+
+Préprod et prod ont chacune leur base de données, leur stockage et leurs clés : un essai en préprod
+ne touche jamais les enregistrements réels.
+
+| Étape | Contenu                                                       | Exigences                       |
+| ----- | ------------------------------------------------------------- | ------------------------------- |
+| 1     | Socle du projet, diagnostic navigateur, cahier de recette     | ENR-08, ENR-15 (en partie)      |
+| 2     | Salle d'attente et test micro / vidéo                         | ENR-15, ENR-17, ENR-18          |
+| 3     | Enregistrement local résistant aux coupures, envoi progressif | ENR-03 à ENR-06, ENR-09, ENR-10 |
+| 4     | Démarrage simultané et alignement sans clap                   | ENR-07                          |
+| 5     | Collectif, émissions, épisodes, sessions, invitations         | ENR-16 à ENR-21                 |
+| 6     | Studio : traitements, presets, transcription, montage         | STU-01 et suivantes             |
+
+## Architecture
+
+Stack TypeScript retenue dans les spécifications :
+
+```
+apps/web        Interface (Next.js + React) : accueil, diagnostic navigateur ; plus tard salle, studio
+apps/api        API (Fastify) : état de santé ; plus tard envoi des morceaux, comptes, sessions
+packages/shared Code partagé et testé sans navigateur (détection du navigateur, évaluation des capacités)
+```
+
+Viendront aux étapes suivantes : LiveKit (conversation en direct), PostgreSQL, Redis + BullMQ,
+stockage objet compatible S3 hébergé en France, workers ffmpeg. `docker-compose.yml` fournit déjà
+PostgreSQL, Redis et un stockage S3 local (MinIO) pour le développement.
+
+## Pour les développeurs
+
+Prérequis : Node.js 22 et pnpm 10 (`corepack enable`).
+
+```bash
+pnpm install
+pnpm dev                 # web sur http://localhost:3000, API sur http://localhost:4000
+pnpm test                # tests unitaires
+pnpm typecheck           # vérification des types
+pnpm build               # build de production
+pnpm test:e2e            # tests de bout en bout (Playwright) après pnpm build
+PW_PROJECTS=chromium pnpm test:e2e   # un seul navigateur
+```
+
+Les tests de bout en bout portent les numéros du cahier de recette (par exemple `SOC-02`).
+
+## Déploiement
+
+Vercel héberge l'interface web (`apps/web`, réglage « Root Directory ») :
+
+- chaque demande de fusion reçoit automatiquement un lien de test, publié en commentaire de la PR ;
+- la branche `preprod` a un lien fixe pour la recette globale ;
+- la branche `main` est la production (« Production Branch » dans Settings › Git).
+
+Les réglages secrets sont saisis séparément pour « Preview » (fonctions et préprod) et « Production ».

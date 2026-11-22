@@ -1,0 +1,22 @@
+{
+  "name": "pod-stud",
+  "private": true,
+  "description": "Studio d'enregistrement de podcast à distance pour le collectif",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter ./apps/* dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "test:e2e": "pnpm --filter @pod-stud/web test:e2e",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "3.8.1",
+    "typescript": "5.9.3"
+  }
+}
