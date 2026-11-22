@@ -339,3 +339,50 @@ export const VERDICT_TEXT: Record<CheckStatus, string> = {
   warn: "Vous pouvez enregistrer, mais suivez les conseils en orange pour un meilleur son.",
   ko: "Un problème empêche un bon enregistrement : suivez les conseils en rouge puis refaites le test.",
 };
+
+export type SessionMode = "audio" | "video";
+
+/**
+ * Espace disque selon le type de session choisi par l'hôte. Les morceaux sont effacés après envoi :
+ * la marge sert surtout en cas de longue coupure réseau. Jamais rouge, au pire orange.
+ */
+export function evaluateStorage(availableBytes: number | null, mode: SessionMode): EquipmentCheck {
+  const GB = 1024 ** 3;
+  const perHour = mode === "video" ? 3.5 * GB : 0.52 * GB;
+  const minHours = mode === "video" ? 2 : 3;
+  const what = mode === "video" ? "de vidéo 1080p" : "d'audio";
+  if (availableBytes === null) {
+    return {
+      id: "storage",
+      label: "Espace pour l'enregistrement",
+      status: "warn",
+      detail: "Le navigateur n'indique pas l'espace disponible.",
+      advice:
+        mode === "video"
+          ? "Gardez au moins 8 Go libres sur l'appareil."
+          : "Gardez au moins 2 Go libres sur l'appareil.",
+    };
+  }
+  const hours = availableBytes / perHour;
+  const h =
+    hours >= 20
+      ? "plus de 20 h"
+      : hours < 1
+        ? `${Math.floor(hours * 60)} min`
+        : `${Math.floor(hours)} h${Math.floor((hours % 1) * 6) ? " " + Math.floor((hours % 1) * 6) * 10 : ""}`;
+  return hours >= minHours
+    ? {
+        id: "storage",
+        label: "Espace pour l'enregistrement",
+        status: "ok",
+        detail: `Place pour environ ${h} ${what}.`,
+      }
+    : {
+        id: "storage",
+        label: "Espace pour l'enregistrement",
+        status: "warn",
+        detail: `Place pour seulement ${h} ${what}.`,
+        advice:
+          "Cela suffit si la connexion tient, car les fichiers sont effacés de l'appareil au fur et à mesure de l'envoi. Par sécurité, libérez de l'espace disque.",
+      };
+}

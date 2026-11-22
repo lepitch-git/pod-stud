@@ -42,8 +42,24 @@ export interface Diagnostic {
 }
 
 const GB = 1024 ** 3;
-/** Une heure d'audio WAV 24 bits 48 kHz mono pèse environ 520 Mo ; on demande une marge confortable. */
-export const MIN_FREE_BYTES_AUDIO = 2 * GB;
+/** Une heure d'audio WAV 24 bits 48 kHz mono pèse environ 0,52 Go. */
+export const AUDIO_BYTES_PER_HOUR = 0.52 * GB;
+/** Une heure de vidéo 1080p (2 à 4 Go) avec sa piste audio : on compte 3,5 Go. */
+export const VIDEO_BYTES_PER_HOUR = 3.5 * GB;
+/**
+ * Les morceaux sont effacés du disque dès que le serveur les a reçus : en temps normal, l'espace utilisé
+ * reste faible. Il faut surtout de la marge si le réseau coupe longtemps. On alerte sous 3 h d'audio.
+ */
+export const MIN_AUDIO_HOURS = 3;
+
+/** Durée lisible : « 45 min », « 2 h 30 », « plus de 20 h ». */
+export function formatHours(hours: number): string {
+  if (hours >= 20) return "plus de 20 h";
+  if (hours < 1) return `${Math.max(0, Math.floor(hours * 60))} min`;
+  const h = Math.floor(hours);
+  const m = Math.floor((hours - h) * 6) * 10;
+  return m ? `${h} h ${m}` : `${h} h`;
+}
 
 export function formatBytes(bytes: number): string {
   if (bytes >= GB) return `${(bytes / GB).toFixed(1).replace(".", ",")} Go`;
@@ -114,21 +130,23 @@ export function evaluateCapabilities(p: CapabilityProbe): Diagnostic {
   if (p.storageAvailableBytes === null) {
     add({
       id: "storageSpace",
-      label: "Espace disque disponible",
+      label: "Espace pour l'enregistrement",
       status: "warn",
       detail:
-        "Le navigateur n'indique pas l'espace disponible. Prévoyez au moins 2 Go libres pour une heure d'audio.",
+        "Le navigateur n'indique pas l'espace disponible. Une heure d'audio demande environ 0,5 Go ; gardez au moins 2 Go libres par précaution.",
       requirement: "ENR-15",
     });
   } else {
-    const ok = p.storageAvailableBytes >= MIN_FREE_BYTES_AUDIO;
+    const audioH = p.storageAvailableBytes / AUDIO_BYTES_PER_HOUR;
+    const videoH = p.storageAvailableBytes / VIDEO_BYTES_PER_HOUR;
+    const ok = audioH >= MIN_AUDIO_HOURS;
     add({
       id: "storageSpace",
-      label: "Espace disque disponible",
+      label: "Espace pour l'enregistrement",
       status: ok ? "ok" : "warn",
       detail: ok
-        ? `Environ ${formatBytes(p.storageAvailableBytes)} utilisables par le navigateur.`
-        : `Seulement ${formatBytes(p.storageAvailableBytes)} utilisables : c'est juste pour une longue session. Libérez de l'espace disque.`,
+        ? `Place pour environ ${formatHours(audioH)} d'audio, ou ${formatHours(videoH)} en vidéo 1080p. Les fichiers sont effacés de l'appareil au fur et à mesure de leur envoi.`
+        : `Place pour seulement ${formatHours(audioH)} d'audio${videoH < 1 ? " et moins d'une heure de vidéo" : ""}. Cela suffit si la connexion tient, mais libérez de l'espace disque par sécurité.`,
       requirement: "ENR-15",
     });
   }

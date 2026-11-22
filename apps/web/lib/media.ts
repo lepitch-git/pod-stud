@@ -160,3 +160,43 @@ export async function measureNetwork(): Promise<{ rttMs: number; uploadMbps: num
   const seconds = Math.max(0.001, (performance.now() - t0 - rttMs * 2) / 1000);
   return { rttMs, uploadMbps: (bytes * 8) / seconds / 1e6 };
 }
+
+/** Le navigateur sait-il choisir la sortie audio d'une page (Chrome, Edge, Firefox récents) ? */
+export function canChooseOutput(): boolean {
+  return typeof HTMLMediaElement !== "undefined" && "setSinkId" in HTMLMediaElement.prototype;
+}
+
+/** Courte mélodie de trois notes au format WAV, pour « tester le son ». */
+export function testSoundUrl(): string {
+  const rate = 44100;
+  const notes = [523.25, 659.25, 783.99];
+  const noteLen = Math.floor(rate * 0.28);
+  const samples = new Int16Array(noteLen * notes.length);
+  notes.forEach((f, n) => {
+    for (let i = 0; i < noteLen; i++) {
+      const env = Math.min(1, i / 400, (noteLen - i) / 2000);
+      samples[n * noteLen + i] = Math.round(
+        0.35 * env * 32767 * Math.sin((2 * Math.PI * f * i) / rate),
+      );
+    }
+  });
+  const buf = new ArrayBuffer(44 + samples.byteLength);
+  const v = new DataView(buf);
+  const str = (o: number, s: string) =>
+    [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  str(0, "RIFF");
+  v.setUint32(4, 36 + samples.byteLength, true);
+  str(8, "WAVE");
+  str(12, "fmt ");
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true);
+  v.setUint32(28, rate * 2, true);
+  v.setUint16(32, 2, true);
+  v.setUint16(34, 16, true);
+  str(36, "data");
+  v.setUint32(40, samples.byteLength, true);
+  new Int16Array(buf, 44).set(samples);
+  return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+}

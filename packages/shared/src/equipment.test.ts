@@ -4,6 +4,7 @@ import {
   evaluateEcho,
   evaluateMic,
   evaluateNetwork,
+  evaluateStorage,
   frameStats,
   summarizeMic,
   toDb,
@@ -113,5 +114,20 @@ describe("evaluateNetwork (SAL-08)", () => {
   });
   it("orange au-delà de 300 ms de latence", () => {
     expect(status(evaluateNetwork({ rttMs: 450, uploadMbps: 20 }), "latency")).toBe("warn");
+  });
+});
+
+describe("evaluateStorage selon le type de session", () => {
+  const GB = 1024 ** 3;
+  it("4 Go suffisent largement en audio seul", () => {
+    expect(evaluateStorage(4 * GB, "audio").status).toBe("ok");
+  });
+  it("mais sont justes en vidéo (orange, pas rouge)", () => {
+    const c = evaluateStorage(4 * GB, "video");
+    expect(c.status).toBe("warn");
+    expect(c.detail).toContain("1 h");
+  });
+  it("affiche une durée plutôt qu'un volume", () => {
+    expect(evaluateStorage(10 * GB, "audio").detail).toContain("19 h 10 d'audio");
   });
 });
