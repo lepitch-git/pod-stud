@@ -102,11 +102,12 @@ export class LiveKitBus implements RoomBus {
     me: string,
     name: string,
     onMessage: (e: Envelope) => void,
+    invitation?: string,
   ): Promise<LiveKitBus | null> {
     const r = await fetch("/api/livekit", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ sessionId, identity: me, name }),
+      body: JSON.stringify({ sessionId, identity: me, name, invitation }),
     }).catch(() => null);
     if (!r?.ok) return null;
     const { url, token } = (await r.json()) as { url: string; token: string };

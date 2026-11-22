@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
+import { currentUser } from "@/lib/server/auth";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -9,7 +10,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const user = await currentUser().catch(() => null);
   return (
     <html lang="fr">
       <body>
@@ -19,7 +21,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </Link>
           <nav>
             <Link href="/test-equipement">Tester mon équipement</Link>{" "}
-            <Link href="/enregistrement">Enregistrer</Link>
+            <Link href="/enregistrement">Enregistrer</Link>{" "}
+            {user ? (
+              <Link href="/collectifs" data-testid="nav-collectifs">
+                Mes collectifs
+              </Link>
+            ) : (
+              <Link href="/connexion" data-testid="nav-login">
+                Connexion
+              </Link>
+            )}
           </nav>
         </header>
         <main>{children}</main>

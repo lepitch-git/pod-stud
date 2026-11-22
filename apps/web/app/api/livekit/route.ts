@@ -1,5 +1,8 @@
-import { isValidTakeId } from "@pod-stud/shared";
+import { can, isValidTakeId } from "@pod-stud/shared";
 import { AccessToken } from "livekit-server-sdk";
+import { currentUser } from "@/lib/server/auth";
+import { collectifOfSession, getCollectif, memberOf } from "@/lib/server/db";
+import { resolveGuestInvite } from "@/lib/server/invitations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +20,7 @@ export async function POST(req: Request) {
     sessionId?: string;
     identity?: string;
     name?: string;
+    invitation?: string;
   } | null;
   if (
     !body?.sessionId ||
@@ -25,6 +29,21 @@ export async function POST(req: Request) {
     !/^[a-z0-9]{4,32}$/.test(body.identity)
   )
     return Response.json({ error: "demande invalide" }, { status: 400 });
+  // Session de collectif : membre autorisé à enregistrer, ou invité avec un lien valide.
+  const cid = await collectifOfSession(body.sessionId);
+  if (cid) {
+    let allowed = false;
+    if (body.invitation) {
+      const r = await resolveGuestInvite(body.invitation);
+      allowed = r.ok && r.s.id === body.sessionId;
+    } else {
+      const c = await getCollectif(cid);
+      const s = c?.sessions.find((x) => x.id === body.sessionId);
+      allowed =
+        !!c && !!s && can(memberOf(c, (await currentUser())?.id), "enregistrer", s.emissionId);
+    }
+    if (!allowed) return Response.json({ error: "accès refusé" }, { status: 403 });
+  }
   const at = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
     identity: body.identity,
     name: String(body.name ?? "").slice(0, 60),

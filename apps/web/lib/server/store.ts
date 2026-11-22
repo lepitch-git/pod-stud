@@ -1,8 +1,9 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { mkdir, readdir, readFile, stat, writeFile, rename } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
@@ -25,6 +26,7 @@ export interface Store {
   put(key: string, body: Uint8Array, contentType?: string): Promise<void>;
   get(key: string): Promise<Uint8Array | null>;
   list(prefix: string): Promise<ObjectInfo[]>;
+  delete(key: string): Promise<void>;
 }
 
 class DiskStore implements Store {
@@ -45,6 +47,9 @@ class DiskStore implements Store {
     } catch {
       return null;
     }
+  }
+  async delete(key: string) {
+    await rm(join(this.root, key), { force: true });
   }
   async list(prefix: string) {
     const dir = join(this.root, prefix);
@@ -90,6 +95,9 @@ class S3Store implements Store {
       if ((e as { name?: string }).name === "NoSuchKey") return null;
       throw e;
     }
+  }
+  async delete(key: string) {
+    await this.s3.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }
   async list(prefix: string) {
     const out: ObjectInfo[] = [];

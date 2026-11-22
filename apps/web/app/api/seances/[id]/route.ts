@@ -1,13 +1,16 @@
 import { isValidTakeId } from "@pod-stud/shared";
+import { sessionFilesDenied } from "@/lib/server/access";
 import { alignTake, sessionTakes } from "@/lib/server/align";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** Prises d'une séance, regroupées par départ commun, avec la qualité de l'alignement de chaque piste. */
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!isValidTakeId(id)) return Response.json({ error: "séance invalide" }, { status: 400 });
+  const denied = await sessionFilesDenied(req, id);
+  if (denied) return denied;
   const takes = await sessionTakes(id);
   const tracks = await Promise.all(takes.map(alignTake));
   const groups = new Map<string, unknown[]>();

@@ -1,4 +1,5 @@
 import { wavHeader } from "@pod-stud/shared";
+import { sessionFilesDenied } from "@/lib/server/access";
 import { getStore } from "@/lib/server/store";
 import { errorResponse } from "@/lib/server/http";
 import { badId, readManifest, receivedChunks } from "@/lib/server/takes";
@@ -19,6 +20,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (bad) return bad;
   const manifest = await readManifest(id);
   if (!manifest) return errorResponse(req, 404, UNAVAILABLE);
+  if (manifest.sessionId) {
+    const denied = await sessionFilesDenied(req, manifest.sessionId);
+    if (denied) return denied;
+  }
   const chunks = (await receivedChunks(id)).sort((a, b) => a.index - b.index);
   const expected = manifest.chunkCount - manifest.lost.length;
   if (chunks.length < expected) return errorResponse(req, 409, UNAVAILABLE);

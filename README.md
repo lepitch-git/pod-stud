@@ -104,3 +104,30 @@ départ et arrêt communs à l'heure du serveur, pistes alignées sans clap
   saisir dans Vercel : `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`.
 - Sans LiveKit : relais de messages en mémoire du serveur, fiable seulement en local et pendant
   les tests automatiques ; la page l'indique.
+
+## Collectif, émissions, sessions et invitations (étape 5)
+
+- **Membres** : connexion par lien magique e-mail (pas de mot de passe), rôles Propriétaire,
+  Administrateur, Animateur (ses émissions), Monteur (pistes et montage, sans lancer
+  d'enregistrement). Règles dans `packages/shared/src/collectif.ts`.
+- **Organisation** : Collectif → Émission (visuel, réglages) → Épisode → Sessions → Prises. Une
+  session de collectif est une séance de l'étape 4 : `/seance/<id>` vérifie le rôle du membre ou le
+  lien de l'invité.
+- **Invités** : un lien par invité (`/invitation/<collectif>.<jeton>`), sans compte, révocable, avec
+  date d'expiration ; aucun accès aux fichiers.
+- **Fichiers** : piste alignée nommée `Emission_Episode_Prise2_Lola.wav` (nom corrigible par
+  l'hôte), ZIP d'une prise, d'une session, d'un épisode ou d'une émission, réservés aux rôles
+  autorisés ; corbeille de 30 jours, quota, archivage des sessions, journal des actions sensibles.
+- **Données** : documents JSON dans le même stockage que les enregistrements (`db/`), donc
+  temporaires tant que le stockage S3 n'est pas branché.
+
+Réglages à saisir dans Vercel (aucun n'est obligatoire pour le lien de test) :
+
+| Variable        | Rôle                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------- |
+| `AUTH_SECRET`   | Longue suite de caractères au hasard qui signe les liens de connexion (obligatoire en prod) |
+| `BREVO_API_KEY` | Envoi réel des e-mails (connexion, invitations) par Brevo                                   |
+| `MAIL_FROM`     | Adresse d'expédition validée dans Brevo                                                     |
+
+Sans `BREVO_API_KEY`, hors production, l'application est en **mode test** : les liens de connexion
+et d'invitation s'affichent à l'écran au lieu de partir par e-mail.
