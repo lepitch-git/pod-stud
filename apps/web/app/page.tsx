@@ -2,11 +2,11 @@ import Link from "next/link";
 
 const steps = [
   { n: 1, title: "Socle du projet et cahier de recette", state: "livré" },
-  { n: 2, title: "Salle d'attente et test micro / vidéo", state: "en cours" },
+  { n: 2, title: "Salle d'attente et test micro / vidéo", state: "livré" },
   {
     n: 3,
     title: "Enregistrement local résistant aux coupures, envoi progressif",
-    state: "à venir",
+    state: "en cours",
   },
   { n: 4, title: "Démarrage simultané et alignement sans clap", state: "à venir" },
   { n: 5, title: "Collectif, émissions, épisodes, sessions, invitations", state: "à venir" },
@@ -24,6 +24,9 @@ export default function Home() {
       <p>
         <Link className="button" href="/test-equipement">
           Tester mon équipement
+        </Link>{" "}
+        <Link className="button secondary" href="/enregistrement">
+          Enregistrement d&apos;essai
         </Link>{" "}
         <Link href="/diagnostic">Diagnostic navigateur</Link>
       </p>

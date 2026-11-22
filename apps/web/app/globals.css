@@ -345,3 +345,45 @@ h1 {
   min-width: 64px;
   text-align: center;
 }
+.error-box {
+  background: var(--ko-bg);
+  color: var(--fg);
+  border-left: 4px solid var(--ko);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.button.danger {
+  background: var(--ko);
+  color: #fff;
+}
+.rec-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.rec-time {
+  font:
+    600 28px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  font-variant-numeric: tabular-nums;
+}
+.rec-status {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+  font-size: 15px;
+}
+.rec-upload {
+  font-size: 15px;
+}
+.takes {
+  padding-left: 18px;
+  font-size: 15px;
+}
+.takes li {
+  margin: 6px 0;
+}

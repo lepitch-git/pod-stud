@@ -17,6 +17,9 @@ const fakeFirefox = {
     firefoxUserPrefs: {
       "media.navigator.streams.fake": true,
       "media.navigator.permission.disabled": true,
+      // Pas de blocage de la lecture automatique : le contexte audio démarre au clic sur Enregistrer.
+      "media.autoplay.default": 0,
+      "media.autoplay.blocking_policy": 0,
     },
   },
 };

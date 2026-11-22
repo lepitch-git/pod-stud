@@ -45,6 +45,15 @@ jobs:
       - name: Installer le navigateur
         working-directory: apps/web
         run: npx playwright install --with-deps ${{ matrix.project == 'mobile-safari' && 'webkit' || matrix.project == 'mobile-chrome' && 'chromium' || matrix.project }}
+      # Firefox ne fait pas tourner l'audio sans sortie son : on lui donne une carte son virtuelle,
+      # comme sur un vrai ordinateur.
+      - name: Carte son virtuelle (Firefox)
+        if: matrix.project == 'firefox'
+        run: |
+          sudo apt-get install -y --no-install-recommends pulseaudio
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=virtuelle
+          pactl set-default-sink virtuelle
       - name: Lancer les tests
         working-directory: apps/web
         run: npx playwright test --project=${{ matrix.project }} --trace off
