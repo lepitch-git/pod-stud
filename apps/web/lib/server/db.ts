@@ -6,6 +6,7 @@ import {
   type MemberScope,
   type Role,
   type SessionKind,
+  type MixSettings,
   type PostprodStats,
   type Treatment,
 } from "@pod-stud/shared";
@@ -113,7 +114,24 @@ export interface Collectif {
   treatments?: Record<string, Treatment>;
   /** Pistes traitées (étape 6a), par identifiant de piste. */
   postprods?: Record<string, Postprod>;
+  /** Mixages (étape 6b), par « <session>/<prise> ». */
+  mixes?: Record<string, Mix>;
   audit: AuditEntry[];
+}
+
+export interface Mix {
+  /** Dossier d'envoi. */
+  u: string;
+  settings: MixSettings;
+  /** Pistes et versions utilisées (pour savoir si le mix est encore à jour). */
+  sources: string;
+  frames: number;
+  chunks: number;
+  /** Secondes retirées en raccourcissant les silences communs, et nombre de coupes. */
+  removedSec: number;
+  cuts: number;
+  doneAt: string;
+  by: string;
 }
 
 export interface Postprod extends PostprodStats {

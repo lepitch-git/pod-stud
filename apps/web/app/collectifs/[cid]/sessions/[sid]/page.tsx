@@ -1,4 +1,13 @@
-import { can, INVITE_DAYS, LANGUAGES, linkState, SESSION_MODES } from "@pod-stud/shared";
+import {
+  can,
+  DEFAULT_MIX,
+  INVITE_DAYS,
+  LANGUAGES,
+  linkState,
+  POSTPROD_RATE,
+  presetOf,
+  SESSION_MODES,
+} from "@pod-stud/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -20,6 +29,7 @@ import { Crumbs, ErrorBanner, frDate, frDay } from "../../../common";
 import { ArchiveForm, ConfirmSubmit, CopyButton } from "../../../ui";
 import type { PostPrise } from "./Postproductions";
 import { PrisesBrowser, type PriseItem } from "./PrisesBrowser";
+import { mixRef, mixSources, sourcesSig } from "@/lib/server/mix";
 import { postprodState } from "@/lib/server/postprod";
 
 export const metadata: Metadata = { title: "Session · Pod Stud" };
@@ -52,32 +62,51 @@ export default async function Page({
   const post: PostPrise[] = files
     ? [...live]
         .sort((a, b) => b.recordedAt.localeCompare(a.recordedAt))
-        .map((p) => ({
-          key: p.key,
-          number: p.number,
-          recordedLabel: frDate(p.recordedAt),
-          tracks: p.tracks.map((t) => {
-            const st = postprodState(c, s, t.takeId);
-            return {
-              takeId: t.takeId,
-              displayName: t.displayName,
-              fileName: t.fileName,
-              seconds: t.seconds,
-              complete: t.complete,
-              treatment: st.treatment,
-              own: Boolean(c.treatments?.[t.takeId]),
-              state: st.state,
-              done: st.pp
+        .map((p) => {
+          const src = mixSources(c, s, p, cid);
+          const done = c.mixes?.[mixRef(sid, p.key)];
+          const diffusion = presetOf(e?.treatment?.preset ?? "naturel").targetLufs === -23;
+          return {
+            key: p.key,
+            number: p.number,
+            recordedLabel: frDate(p.recordedAt),
+            mix: {
+              sources: src.map((x) => ({ name: x.name, processed: x.processed, url: x.url })),
+              sig: sourcesSig(src),
+              defaults: { ...DEFAULT_MIX, target: diffusion ? (-23 as const) : (-16 as const) },
+              done: done
                 ? {
-                    inputLufs: st.pp.inputLufs,
-                    outputLufs: st.pp.outputLufs,
-                    repaired: st.pp.repaired,
-                    breaths: st.pp.breaths,
+                    settings: done.settings,
+                    seconds: done.frames / POSTPROD_RATE,
+                    removedSec: done.removedSec,
+                    cuts: done.cuts,
                   }
                 : null,
-            };
-          }),
-        }))
+              fresh: Boolean(done && done.sources === sourcesSig(src)),
+            },
+            tracks: p.tracks.map((t) => {
+              const st = postprodState(c, s, t.takeId);
+              return {
+                takeId: t.takeId,
+                displayName: t.displayName,
+                fileName: t.fileName,
+                seconds: t.seconds,
+                complete: t.complete,
+                treatment: st.treatment,
+                own: Boolean(c.treatments?.[t.takeId]),
+                state: st.state,
+                done: st.pp
+                  ? {
+                      inputLufs: st.pp.inputLufs,
+                      outputLufs: st.pp.outputLufs,
+                      repaired: st.pp.repaired,
+                      breaths: st.pp.breaths,
+                    }
+                  : null,
+              };
+            }),
+          };
+        })
     : [];
   const prises: PriseItem[] = live.map((p) => ({
     key: p.key,

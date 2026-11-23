@@ -4,6 +4,7 @@ import { formatDuration, PRESETS, presetOf, treatmentKey, type Treatment } from 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { previewTrack, processTrack } from "@/lib/studio/client";
+import { MixPanel, type MixInfo } from "./MixPanel";
 
 export type PostState = "brut" | "a-faire" | "a-jour" | "perime";
 
@@ -25,6 +26,7 @@ export interface PostPrise {
   number: number;
   recordedLabel: string;
   tracks: PostTrack[];
+  mix: MixInfo;
 }
 
 type Save = (
@@ -150,6 +152,7 @@ export function Postproductions({
                 </button>
               </p>
             )}
+            <MixPanel cid={cid} sid={sid} prise={p.key} info={p.mix} disabled={busy} />
           </section>
         );
       })}

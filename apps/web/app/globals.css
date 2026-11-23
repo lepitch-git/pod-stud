@@ -729,3 +729,14 @@ details.card > summary {
   background: var(--accent);
   color: var(--accent-fg);
 }
+.post-mix {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border);
+}
+.post-mix h4 {
+  margin: 0 0 0.5rem;
+}
+.warn-text {
+  color: var(--warn);
+}
