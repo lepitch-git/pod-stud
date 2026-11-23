@@ -6,6 +6,8 @@ import {
   type MemberScope,
   type Role,
   type SessionKind,
+  type PostprodStats,
+  type Treatment,
 } from "@pod-stud/shared";
 import { getStore } from "./store";
 
@@ -50,6 +52,8 @@ export interface Emission {
   imageVersion?: number;
   defaultMode: SessionKind;
   defaultLanguage: string;
+  /** Traitement de la voix par défaut des pistes de l'émission (étape 6a). */
+  treatment?: Treatment;
 }
 
 export interface Episode {
@@ -105,7 +109,20 @@ export interface Collectif {
   deletedPrises: Record<string, string>;
   /** Nom d'intervenant corrigé par l'hôte, par piste (ENR-18). */
   renames: Record<string, string>;
+  /** Traitement choisi pour une piste (sinon celui de l'émission), par identifiant de piste. */
+  treatments?: Record<string, Treatment>;
+  /** Pistes traitées (étape 6a), par identifiant de piste. */
+  postprods?: Record<string, Postprod>;
   audit: AuditEntry[];
+}
+
+export interface Postprod extends PostprodStats {
+  cle: string;
+  treatment: Treatment;
+  frames: number;
+  chunks: number;
+  doneAt: string;
+  by: string;
 }
 
 const enc = new TextEncoder();

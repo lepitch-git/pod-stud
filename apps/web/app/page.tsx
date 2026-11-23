@@ -10,7 +10,7 @@ const steps = [
   },
   { n: 4, title: "Démarrage simultané et alignement sans clap", state: "livré" },
   { n: 5, title: "Collectif, émissions, épisodes, sessions, invitations", state: "en cours" },
-  { n: 6, title: "Studio : traitements, presets, transcription, montage", state: "à venir" },
+  { n: 6, title: "Studio : traitements, presets, transcription, montage", state: "en cours" },
 ];
 
 export default function Home() {

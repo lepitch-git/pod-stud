@@ -1,18 +1,8 @@
 import "server-only";
-import { floatToPcm24, StreamResampler, wavHeader } from "@pod-stud/shared";
+import { floatToPcm24, pcm24ToFloat, StreamResampler, wavHeader } from "@pod-stud/shared";
 import { alignTake, OUT_RATE } from "./align";
 import { getStore } from "./store";
 import { receivedChunks, type StoredManifest } from "./takes";
-
-function pcm24ToFloat(b: Uint8Array): Float32Array {
-  const out = new Float32Array(Math.floor(b.length / 3));
-  for (let i = 0, o = 0; i < out.length; i++, o += 3) {
-    let v = (b[o] as number) | ((b[o + 1] as number) << 8) | ((b[o + 2] as number) << 16);
-    if (v & 0x800000) v -= 0x1000000;
-    out[i] = v / (v < 0 ? 0x800000 : 0x7fffff);
-  }
-  return out;
-}
 
 /** La piste est-elle complète sur le serveur ? */
 export async function isComplete(m: StoredManifest) {

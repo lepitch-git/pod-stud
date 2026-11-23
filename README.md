@@ -131,3 +131,21 @@ Réglages à saisir dans Vercel (aucun n'est obligatoire pour le lien de test) :
 
 Sans `BREVO_API_KEY`, hors production, l'application est en **mode test** : les liens de connexion
 et d'invitation s'affichent à l'écran au lieu de partir par e-mail.
+
+## Studio : traitement de la voix (étape 6a)
+
+- Onglet **Postproductions** d'une session : pour chaque piste, un preset (Naturel, Radio
+  chaleureuse, Clarté, Diffusion radio à -23 LUFS, Brut), trois curseurs (Voix, Bruit de fond,
+  Ambiance), l'anti-bruits de bouche (léger, moyen, fort) et l'atténuation des respirations.
+  Réglage par piste, pour toute la prise, ou par défaut pour l'émission.
+- Chaîne (`packages/shared/src/dsp`) : anti-bruits de bouche → passe-haut → réduction de bruit
+  (soustraction spectrale, bruit estimé en continu) → égalisation → dé-esseur → compression douce →
+  respirations ; puis mise au volume (BS.1770) et limiteur à -1 dBTP. Aucun étage ne retire ni
+  n'ajoute d'échantillon : une piste traitée a exactement la durée de l'originale.
+- Le calcul se fait **dans le navigateur** de la personne qui lance le traitement (Web Worker) :
+  aucune limite de durée côté serveur, aucun service extérieur. Le résultat est rangé sur le serveur
+  par morceaux de 10 s (12 dB sous le niveau final) ; la mise au volume et le limiteur s'appliquent
+  au téléchargement (`/api/collectifs/<cid>/pistes/<piste>?traitee=1`).
+- Écoute avant / après sur un extrait de 20 s, les deux au même volume.
+- Limites connues : les versions traitées ne comptent pas encore dans le quota ; sans stockage
+  définitif (S3), elles sont temporaires comme les enregistrements.

@@ -2,6 +2,7 @@
 
 import { formatSize, formatDuration } from "@pod-stud/shared";
 import { ConfirmSubmit, useRemembered } from "../../../ui";
+import { Postproductions, type PostPrise } from "./Postproductions";
 
 export interface PriseItem {
   key: string;
@@ -33,6 +34,9 @@ export function PrisesBrowser({
   files,
   renameTrack,
   trashPrise,
+  post,
+  emissionName,
+  saveTreatment,
 }: {
   cid: string;
   sid: string;
@@ -40,6 +44,10 @@ export function PrisesBrowser({
   files: boolean;
   renameTrack: Act;
   trashPrise: Act;
+  /** Pistes et traitements (étape 6a), pour les rôles qui ont accès aux fichiers. */
+  post: PostPrise[];
+  emissionName: string;
+  saveTreatment: Act;
 }) {
   const [tab, setTab] = useRemembered<"enregistrements" | "postproductions">(
     "podstud:session-onglet",
@@ -93,7 +101,8 @@ export function PrisesBrowser({
             onClick={() => setTab("postproductions")}
             data-testid="tab-postproductions"
           >
-            Postproductions (0)
+            Postproductions (
+            {post.flatMap((p) => p.tracks).filter((t) => t.state === "a-jour").length})
           </button>
         </nav>
         {tab === "enregistrements" && (
@@ -122,9 +131,27 @@ export function PrisesBrowser({
         )}
       </div>
       {tab === "postproductions" ? (
-        <p className="hint" data-testid="postproductions-empty">
-          Les montages et versions traitées apparaîtront ici avec le studio (étape 6).
-        </p>
+        files ? (
+          <Postproductions
+            cid={cid}
+            sid={sid}
+            prises={post}
+            emissionName={emissionName}
+            save={
+              saveTreatment as unknown as (
+                cid: string,
+                sid: string,
+                take: string,
+                prise: string[],
+                fd: FormData,
+              ) => Promise<void>
+            }
+          />
+        ) : (
+          <p className="hint" data-testid="postproductions-empty">
+            Votre rôle ne donne pas accès aux fichiers de cette émission.
+          </p>
+        )
       ) : sorted.length === 0 ? (
         <p className="hint" data-testid="prises-empty">
           Aucune prise pour l&apos;instant : ouvrez le studio d&apos;enregistrement pour lancer la

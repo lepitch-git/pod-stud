@@ -4,6 +4,7 @@ import { currentUser } from "./auth";
 import { audit, getCollectif, memberOf, updateCollectif, type Collectif, type Session } from "./db";
 import { errorResponse } from "./http";
 import { sessionPrises, type PriseView } from "./prises";
+import { readManifest } from "./takes";
 
 /** Contrôle d'accès aux fichiers d'un collectif (ENR-21) : membre connecté avec le droit « fichiers ». */
 export async function filesContext(req: Request, cid: string) {
@@ -54,4 +55,22 @@ export async function logDownload(cid: string, by: string, what: string) {
   await updateCollectif(cid, (doc) => audit(doc, by, `Téléchargement : ${what}`)).catch(
     () => undefined,
   );
+}
+
+/** Une piste d'une session du collectif, avec les contrôles d'accès aux fichiers. */
+export async function trackContext(req: Request, cid: string, take: string) {
+  const ctx = await filesContext(req, cid);
+  if (ctx.error) return { error: ctx.error };
+  const { c, m } = ctx;
+  const manifest = await readManifest(take.replace(/\.wav$/, "")).catch(() => null);
+  const s = c.sessions.find((x) => x.id === manifest?.sessionId);
+  if (!manifest || !s)
+    return { error: errorResponse(req, 404, "Le serveur ne retrouve pas cette piste.") };
+  const err = sessionFilesError(req, c, m, s);
+  if (err) return { error: err };
+  const track = (await livePrises(c, s))
+    .flatMap((p) => p.tracks)
+    .find((t) => t.takeId === manifest.id);
+  if (!track) return { error: errorResponse(req, 404, "Cette piste est dans la corbeille.") };
+  return { ...ctx, s, manifest, track };
 }
