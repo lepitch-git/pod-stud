@@ -142,7 +142,7 @@ test("STU-05, STU-14, STU-15 : mix de la prise, silences communs raccourcis, vit
   await expect(page.getByTestId("mix-panel").first()).toHaveAttribute("data-fresh", "false");
 });
 
-test("STU-08 à STU-10 : transcription corrigée à la main, remplacer partout, exports texte et sous-titres", async ({
+test("STU-04 : transcription corrigée à la main, remplacer partout, exports texte et sous-titres", async ({
   page,
   browserName,
 }) => {

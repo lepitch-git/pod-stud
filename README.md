@@ -161,3 +161,15 @@ et d'invitation s'affichent à l'écran au lieu de partir par e-mail.
   voix restent synchronisées.
 - Calcul dans le navigateur, mix rangé sur le serveur, téléchargement `…_Prise1_Mix.wav`. Le mix est
   signalé « à refaire » si une piste a été traitée ou retraitée depuis.
+
+## Studio : transcription (étape 6c)
+
+- Dans l'onglet Postproductions, chaque prise a sa **transcription** : Whisper tourne dans le
+  navigateur (transformers.js, modèles `onnx-community/whisper-base` « rapide » ou `whisper-small`
+  « précis », téléchargés une fois depuis huggingface.co puis gardés en cache ; sans compte).
+- Chaque piste est transcrite à part, sur ses seuls passages parlés : l'intervenant est nommé sans
+  réglage et Whisper n'invente rien sur les silences (les phrases typiques inventées sont filtrées).
+- Corrections à la main, « remplacer partout » pour les noms propres, exports TXT, SRT, WebVTT, et
+  SRT recalé sur le mix (silences coupés et vitesse pris en compte).
+- Le calcul Whisper lui-même se teste à la main (le test automatique dépose une transcription puis
+  vérifie corrections et exports).
