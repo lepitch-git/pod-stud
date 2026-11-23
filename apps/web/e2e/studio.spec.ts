@@ -37,7 +37,7 @@ async function recordedSession(page: Page, seconds = 8) {
   return ids;
 }
 
-test("STU-01 à STU-04, STU-13 : preset, réglages, écoute avant/après, traitement sans changer la durée", async ({
+test("STU-03 : preset, réglages, écoute avant/après, traitement sans changer la durée", async ({
   page,
   browserName,
 }) => {
@@ -101,7 +101,7 @@ test("STU-01 à STU-04, STU-13 : preset, réglages, écoute avant/après, traite
   await expect(page.getByTestId("audit")).toContainText("Traitement de la voix");
 });
 
-test("STU-14, STU-15 : mix de la prise, silences communs raccourcis, vitesse sans changer la hauteur", async ({
+test("STU-05, STU-14, STU-15 : mix de la prise, silences communs raccourcis, vitesse sans changer la hauteur", async ({
   page,
   browserName,
 }) => {
