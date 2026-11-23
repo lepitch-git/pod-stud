@@ -18,7 +18,7 @@ function wavInfo(buf: Buffer) {
   return { frames: data / 3, peak };
 }
 
-test("STU-01 à STU-04, STU-13 : preset, réglages, écoute avant/après, traitement sans changer la durée", async ({
+test("STU-03 : preset, réglages, écoute avant/après, traitement sans changer la durée", async ({
   page,
   browserName,
 }) => {
