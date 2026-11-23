@@ -8,3 +8,5 @@ export * from "./loudness";
 export * from "./presets";
 export * from "./stage";
 export * from "./track";
+export * from "./silence";
+export * from "./wsola";

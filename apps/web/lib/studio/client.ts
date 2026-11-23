@@ -51,3 +51,26 @@ export function previewTrack(cid: string, takeId: string, treatment: Treatment, 
     seconds: 20,
   }) as Promise<Extract<PostprodOut, { type: "apercu" }>>;
 }
+
+export function runMix(
+  msg: import("./mix.worker").MixIn,
+  onProgress: (phase: string, ratio: number) => void,
+) {
+  return new Promise<Extract<import("./mix.worker").MixOut, { type: "done" | "estimation" }>>(
+    (resolve, reject) => {
+      const w = new Worker(new URL("./mix.worker.ts", import.meta.url), { type: "module" });
+      w.onmessage = (e: MessageEvent<import("./mix.worker").MixOut>) => {
+        const m = e.data;
+        if (m.type === "progress") return onProgress(m.phase, m.ratio);
+        w.terminate();
+        if (m.type === "error") reject(new Error(m.message));
+        else resolve(m);
+      };
+      w.onerror = (e) => {
+        w.terminate();
+        reject(new Error(e.message || "Le mixage s'est arrêté."));
+      };
+      w.postMessage(msg);
+    },
+  );
+}

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { login, setup, uniq } from "./aides";
 
 // Cas de recette automatisés de l'étape 6a (STU-xx) : traitement de la voix d'une piste.
@@ -18,28 +18,31 @@ function wavInfo(buf: Buffer) {
   return { frames: data / 3, peak };
 }
 
-test("STU-01 à STU-04, STU-13 : preset, réglages, écoute avant/après, traitement sans changer la durée", async ({
-  page,
-  browserName,
-}) => {
-  test.skip(browserName === "webkit", "Pas de micro simulé pour WebKit sous Linux");
+/** Collectif, session et une prise de quelques secondes enregistrée par l'hôte seul. */
+async function recordedSession(page: Page, seconds = 8) {
   await login(page, `monteur-${uniq()}@exemple.fr`);
-  const { cid, sid } = await setup(page, { emission: "Ciné du commerce", episode: "Épisode 13" });
-
-  // Une prise de quelques secondes.
+  const ids = await setup(page, { emission: "Ciné du commerce", episode: "Épisode 13" });
   await page.getByTestId("open-studio").click();
   await page.getByTestId("room-name").fill("Xad");
   await page.getByTestId("room-join").click();
   await expect(page.getByTestId("rec-start")).toBeEnabled({ timeout: 15_000 });
   await page.getByTestId("rec-start").click();
-  await page.waitForTimeout(8000);
+  await page.waitForTimeout(seconds * 1000);
   await page.getByTestId("rec-stop").click();
   await expect(page.getByTestId("rec-upload")).toContainText("Tout est envoyé", {
     timeout: 30_000,
   });
-
-  await page.goto(`/collectifs/${cid}/sessions/${sid}`);
+  await page.goto(`/collectifs/${ids.cid}/sessions/${ids.sid}`);
   await page.getByTestId("tab-postproductions").click();
+  return ids;
+}
+
+test("STU-01 à STU-04, STU-13 : preset, réglages, écoute avant/après, traitement sans changer la durée", async ({
+  page,
+  browserName,
+}) => {
+  test.skip(browserName === "webkit", "Pas de micro simulé pour WebKit sous Linux");
+  const { cid } = await recordedSession(page);
   const track = page.getByTestId("post-track").first();
   await expect(track).toHaveAttribute("data-state", "a-faire", { timeout: 15_000 });
   await expect(track.getByTestId("post-preset")).toHaveText("Naturel");
@@ -96,4 +99,45 @@ test("STU-01 à STU-04, STU-13 : preset, réglages, écoute avant/après, traite
   // Le journal garde la trace des réglages.
   await page.goto(`/collectifs/${cid}/journal`);
   await expect(page.getByTestId("audit")).toContainText("Traitement de la voix");
+});
+
+test("STU-14, STU-15 : mix de la prise, silences communs raccourcis, vitesse sans changer la hauteur", async ({
+  page,
+  browserName,
+}) => {
+  test.skip(browserName === "webkit", "Pas de micro simulé pour WebKit sous Linux");
+  const { cid } = await recordedSession(page, 10);
+  const panel = page.getByTestId("mix-panel").first();
+  await expect(panel).toHaveAttribute("data-fresh", "none");
+  await expect(panel).toContainText("Xad (originale)");
+
+  // Le micro simulé émet un bip par seconde : il y a des silences à raccourcir.
+  await panel.getByTestId("mix-silences").selectOption("0.5");
+  await panel.getByTestId("mix-estimate").click();
+  await expect(panel.getByTestId("mix-estimate-result")).toBeVisible({ timeout: 60_000 });
+  await panel.getByTestId("mix-speed").fill("1.25");
+  await panel.getByTestId("mix-run").click();
+  await expect(panel).toHaveAttribute("data-fresh", "true", { timeout: 90_000 });
+  await expect(panel.getByTestId("mix-done")).toContainText("×1,25");
+
+  const take = (await page.getByTestId("post-track").first().getAttribute("data-take")) as string;
+  const original = wavInfo(
+    await (await page.request.get(`/api/collectifs/${cid}/pistes/${take}`)).body(),
+  );
+  const href = (await panel.getByTestId("mix-download").getAttribute("href")) as string;
+  const res = await page.request.get(href);
+  expect(res.status()).toBe(200);
+  expect(res.headers()["content-disposition"]).toContain("_Prise1_Mix.wav");
+  const mixed = wavInfo(await res.body());
+  // Plus court qu'à vitesse normale : ×1,25 au moins, plus les silences raccourcis.
+  expect(mixed.frames).toBeLessThanOrEqual(Math.round(original.frames / 1.25));
+  expect(mixed.frames).toBeGreaterThan(original.frames * 0.3);
+  expect(mixed.peak).toBeLessThanOrEqual(0.9);
+
+  // Une piste traitée ensuite rend le mix périmé.
+  await page.getByTestId("post-run").first().click();
+  await expect(page.getByTestId("post-track").first()).toHaveAttribute("data-state", "a-jour", {
+    timeout: 90_000,
+  });
+  await expect(page.getByTestId("mix-panel").first()).toHaveAttribute("data-fresh", "false");
 });

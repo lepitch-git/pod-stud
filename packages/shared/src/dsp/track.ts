@@ -41,3 +41,28 @@ export function pcm24ToFloat(b: Uint8Array, out = new Float32Array(Math.floor(b.
   }
   return out;
 }
+
+/** Réglages du mixage d'une prise (étape 6b). */
+export interface MixSettings {
+  /** Durée maximale des silences communs, en secondes (0 : on ne touche pas aux silences). */
+  silenceMax: number;
+  /** Vitesse de lecture, sans changer la hauteur des voix (0,8 à 1,25). */
+  speed: number;
+  /** Volume final : -16 LUFS (podcast) ou -23 LUFS (diffusion radio). */
+  target: -16 | -23;
+}
+
+export const SILENCE_CHOICES = [0, 0.5, 0.7, 1, 1.5];
+export const DEFAULT_MIX: MixSettings = { silenceMax: 0, speed: 1, target: -16 };
+
+export function normalizeMix(m: Partial<MixSettings> | undefined): MixSettings {
+  const speed = Math.round(Number(m?.speed ?? 1) * 20) / 20;
+  return {
+    silenceMax: SILENCE_CHOICES.includes(Number(m?.silenceMax)) ? Number(m?.silenceMax) : 0,
+    speed: speed >= 0.8 && speed <= 1.25 ? speed : 1,
+    target: Number(m?.target) === -23 ? -23 : -16,
+  };
+}
+
+/** Identifiant d'envoi (dossier) choisi par le navigateur : 16 caractères hexadécimaux. */
+export const isUploadId = (u: string) => /^[0-9a-f]{16}$/.test(u);

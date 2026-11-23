@@ -149,3 +149,15 @@ et d'invitation s'affichent à l'écran au lieu de partir par e-mail.
 - Écoute avant / après sur un extrait de 20 s, les deux au même volume.
 - Limites connues : les versions traitées ne comptent pas encore dans le quota ; sans stockage
   définitif (S3), elles sont temporaires comme les enregistrements.
+
+## Studio : mix de la prise (étape 6b)
+
+- Dans l'onglet Postproductions, chaque prise a un **mix** : somme des voix (version traitée quand
+  elle est à jour, sinon l'originale), au volume final choisi (-16 ou -23 LUFS), plafond -1 dBTP.
+- **Silences communs** (STU-14) : un passage n'est raccourci que si toutes les voix s'y taisent, à
+  0,5 / 0,7 / 1 / 1,5 s au plus, avec un fondu enchaîné. « Calculer le temps gagné » l'annonce avant
+  de mixer ; les pistes d'origine ne sont jamais modifiées (on peut refaire le mix sans).
+- **Vitesse** 0,8 à 1,25 sans changer la hauteur des voix (WSOLA), appliquée au mix entier : les
+  voix restent synchronisées.
+- Calcul dans le navigateur, mix rangé sur le serveur, téléchargement `…_Prise1_Mix.wav`. Le mix est
+  signalé « à refaire » si une piste a été traitée ou retraitée depuis.
