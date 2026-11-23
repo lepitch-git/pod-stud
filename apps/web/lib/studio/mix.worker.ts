@@ -187,6 +187,8 @@ async function mix(m: MixIn) {
       frames: out,
       removedSec,
       cuts: cuts.length,
+      // Coupes en secondes de la prise d'origine, pour recaler la transcription sur le mix.
+      cutList: cuts.map((c) => [Math.round(c.start / 48) / 1000, Math.round(c.end / 48) / 1000]),
     }),
   });
   if (!res.ok) {

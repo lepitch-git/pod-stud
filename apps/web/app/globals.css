@@ -740,3 +740,25 @@ details.card > summary {
 .warn-text {
   color: var(--warn);
 }
+.post-transcript {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border);
+}
+.transcript-line {
+  margin: 0.5rem 0;
+}
+.transcript-line textarea {
+  display: block;
+  width: 100%;
+  font: inherit;
+  padding: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--fg);
+  resize: vertical;
+}
+.find-replace input {
+  max-width: 12rem;
+}

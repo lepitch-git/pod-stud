@@ -116,6 +116,8 @@ export interface Collectif {
   postprods?: Record<string, Postprod>;
   /** Mixages (étape 6b), par « <session>/<prise> ». */
   mixes?: Record<string, Mix>;
+  /** Transcriptions (étape 6c), par « <session>/<prise> » : le texte est rangé à part. */
+  transcripts?: Record<string, { segments: number; model: string; updatedAt: string; by: string }>;
   audit: AuditEntry[];
 }
 
@@ -130,6 +132,8 @@ export interface Mix {
   /** Secondes retirées en raccourcissant les silences communs, et nombre de coupes. */
   removedSec: number;
   cuts: number;
+  /** Silences coupés, en secondes de la prise d'origine (pour recaler la transcription). */
+  cutList?: [number, number][];
   doneAt: string;
   by: string;
 }

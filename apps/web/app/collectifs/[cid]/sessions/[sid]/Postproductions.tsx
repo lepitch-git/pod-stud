@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { previewTrack, processTrack } from "@/lib/studio/client";
 import { MixPanel, type MixInfo } from "./MixPanel";
+import { TranscriptPanel, type TranscriptInfo } from "./TranscriptPanel";
 
 export type PostState = "brut" | "a-faire" | "a-jour" | "perime";
 
@@ -27,6 +28,7 @@ export interface PostPrise {
   recordedLabel: string;
   tracks: PostTrack[];
   mix: MixInfo;
+  transcript: TranscriptInfo;
 }
 
 type Save = (
@@ -120,7 +122,13 @@ export function Postproductions({
           (t) => t.complete && (t.state === "a-faire" || t.state === "perime"),
         );
         return (
-          <section key={p.key} className="prise" data-testid="post-prise" data-number={p.number}>
+          <section
+            key={p.key}
+            className="prise"
+            data-testid="post-prise"
+            data-number={p.number}
+            data-key={p.key}
+          >
             <h3>
               Prise {p.number} <small className="hint">· {p.recordedLabel}</small>
             </h3>
@@ -153,6 +161,13 @@ export function Postproductions({
               </p>
             )}
             <MixPanel cid={cid} sid={sid} prise={p.key} info={p.mix} disabled={busy} />
+            <TranscriptPanel
+              cid={cid}
+              sid={sid}
+              prise={p.key}
+              info={p.transcript}
+              disabled={busy}
+            />
           </section>
         );
       })}

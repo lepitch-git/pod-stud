@@ -141,3 +141,69 @@ test("STU-14, STU-15 : mix de la prise, silences communs raccourcis, vitesse san
   });
   await expect(page.getByTestId("mix-panel").first()).toHaveAttribute("data-fresh", "false");
 });
+
+test("STU-08 à STU-10 : transcription corrigée à la main, remplacer partout, exports texte et sous-titres", async ({
+  page,
+  browserName,
+}) => {
+  test.skip(browserName === "webkit", "Pas de micro simulé pour WebKit sous Linux");
+  // Le calcul Whisper lui-même se teste à la main (le modèle se télécharge depuis huggingface.co) :
+  // ici, on dépose une transcription comme le ferait le navigateur, puis on la corrige et l'exporte.
+  const { cid, sid } = await recordedSession(page, 6);
+  const panel = page.getByTestId("transcript-panel").first();
+  await expect(panel.getByTestId("transcript-summary")).toHaveText("pas encore faite");
+  const prise = (await page.getByTestId("post-prise").first().getAttribute("data-key")) as string;
+  const url = `/api/collectifs/${cid}/transcriptions/${sid}/${encodeURIComponent(prise)}`;
+  const put = await page.request.put(url, {
+    data: {
+      model: "onnx-community/whisper-base",
+      segments: [
+        { start: 0.4, end: 2.1, speaker: "Xad", text: "Bienvenue au comptoir avec Mister I." },
+        { start: 2.5, end: 3.9, speaker: "Xad", text: "Mister I, tu es là ?" },
+        {
+          start: 4,
+          end: 5,
+          speaker: "Xad",
+          text: "Sous-titres réalisés par la communauté d'Amara.org",
+        },
+      ],
+    },
+  });
+  expect(put.status()).toBe(200);
+  expect((await put.json()).segments).toBe(2);
+
+  await page.reload();
+  await page.getByTestId("tab-postproductions").click();
+  await expect(panel.getByTestId("transcript-summary")).toHaveText("2 passages");
+  await panel.locator("summary").click();
+  await expect(panel.getByTestId("transcript-line")).toHaveCount(2);
+  await panel.getByTestId("transcript-find").fill("mister i");
+  await panel.getByTestId("transcript-replace").fill("Mister E");
+  await panel.getByTestId("transcript-replace-all").click();
+  await expect(panel.getByTestId("transcript-line").first().locator("textarea")).toHaveValue(
+    "Bienvenue au comptoir avec Mister E.",
+  );
+  await panel
+    .getByTestId("transcript-line")
+    .nth(1)
+    .locator("textarea")
+    .fill("Mister E, tu es là ce soir ?");
+  await panel.getByTestId("transcript-save").click();
+  await expect(panel.getByTestId("transcript-save")).toBeDisabled();
+
+  const txt = await page.request.get(`${url}?format=txt`);
+  expect(txt.headers()["content-disposition"]).toContain("_Prise1_Transcription.txt");
+  expect(await txt.text()).toBe(
+    "[00:00:00] Xad : Bienvenue au comptoir avec Mister E. Mister E, tu es là ce soir ?\n",
+  );
+  const srt = await (await page.request.get(`${url}?format=srt`)).text();
+  expect(srt).toContain("2\n00:00:02,500 --> 00:00:03,900\nXad: Mister E, tu es là ce soir ?");
+
+  // Sous-titres calés sur le mix à ×1,25 : les temps sont divisés par la vitesse.
+  const mix = page.getByTestId("mix-panel").first();
+  await mix.getByTestId("mix-speed").fill("1.25");
+  await mix.getByTestId("mix-run").click();
+  await expect(mix).toHaveAttribute("data-fresh", "true", { timeout: 90_000 });
+  const srtMix = await (await page.request.get(`${url}?format=srt&base=mix`)).text();
+  expect(srtMix).toContain("2\n00:00:02,000 --> 00:00:03,120\nXad: Mister E");
+});
