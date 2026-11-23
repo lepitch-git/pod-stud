@@ -84,6 +84,17 @@ export default async function Page({
                 : null,
               fresh: Boolean(done && done.sources === sourcesSig(src)),
             },
+            transcript: {
+              tracks: p.tracks
+                .filter((t) => t.complete)
+                .map((t) => ({
+                  url: `/api/collectifs/${cid}/pistes/${t.takeId}`,
+                  speaker: t.displayName,
+                })),
+              language: s.language,
+              hasMix: Boolean(done),
+              summary: c.transcripts?.[mixRef(sid, p.key)] ?? null,
+            },
             tracks: p.tracks.map((t) => {
               const st = postprodState(c, s, t.takeId);
               return {

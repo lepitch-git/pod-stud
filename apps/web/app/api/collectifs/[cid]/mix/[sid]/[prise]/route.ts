@@ -97,6 +97,7 @@ export async function POST(req: Request, { params }: Params) {
     frames: number;
     removedSec: number;
     cuts: number;
+    cutList?: unknown;
   } | null;
   if (!b || !isUploadId(b.u) || !Number.isInteger(b.frames) || b.frames <= 0)
     return bad(400, "Mix incomplet.");
@@ -117,6 +118,14 @@ export async function POST(req: Request, { params }: Params) {
       chunks,
       removedSec: Math.max(0, Number(b.removedSec) || 0),
       cuts: Math.max(0, Math.round(Number(b.cuts) || 0)),
+      cutList: Array.isArray(b.cutList)
+        ? (b.cutList as unknown[])
+            .slice(0, 50_000)
+            .filter(
+              (c): c is [number, number] =>
+                Array.isArray(c) && c.length === 2 && c.every((v) => Number.isFinite(v)),
+            )
+        : [],
       doneAt: new Date().toISOString(),
       by: user.email,
     };

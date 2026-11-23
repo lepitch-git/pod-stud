@@ -74,3 +74,26 @@ export function runMix(
     },
   );
 }
+
+export function runTranscription(
+  msg: import("./transcribe.worker").TranscribeIn,
+  onProgress: (phase: string, ratio: number, detail?: string) => void,
+) {
+  return new Promise<Extract<import("./transcribe.worker").TranscribeOut, { type: "done" }>>(
+    (resolve, reject) => {
+      const w = new Worker(new URL("./transcribe.worker.ts", import.meta.url), { type: "module" });
+      w.onmessage = (e: MessageEvent<import("./transcribe.worker").TranscribeOut>) => {
+        const m = e.data;
+        if (m.type === "progress") return onProgress(m.phase, m.ratio, m.detail);
+        w.terminate();
+        if (m.type === "error") reject(new Error(m.message));
+        else resolve(m);
+      };
+      w.onerror = (e) => {
+        w.terminate();
+        reject(new Error(e.message || "La transcription s'est arrêtée."));
+      };
+      w.postMessage(msg);
+    },
+  );
+}
